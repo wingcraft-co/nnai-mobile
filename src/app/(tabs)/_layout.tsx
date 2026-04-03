@@ -6,7 +6,7 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 
-export default function AppTabs() {
+export default function TabsLayout() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
   const { t } = useI18n();

@@ -9,22 +9,24 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#15202b',
-    background: '#f4efe7',
-    backgroundElement: '#fffdf9',
-    backgroundSelected: '#dff2ea',
-    textSecondary: '#5d6774',
-    accent: '#0c7c59',
-    border: '#dfd3c4',
+    text: '#2a2a2a',
+    background: '#fafafa',
+    backgroundElement: '#f5f5f5',
+    backgroundSelected: '#efe8db',
+    textSecondary: '#6b6b6b',
+    accent: '#d97706',
+    destructive: '#dc2626',
+    border: '#dddddd',
   },
   dark: {
-    text: '#f6f7f8',
-    background: '#101418',
-    backgroundElement: '#192028',
-    backgroundSelected: '#1f3a34',
-    textSecondary: '#98a5b3',
-    accent: '#62d2a2',
-    border: '#283341',
+    text: '#f3f3f3',
+    background: '#1c1c1c',
+    backgroundElement: '#2a2a2a',
+    backgroundSelected: '#343434',
+    textSecondary: '#b1b1b1',
+    accent: '#f59e0b',
+    destructive: '#f87171',
+    border: '#444444',
   },
 } as const;
 
@@ -48,9 +50,9 @@ export const Fonts = Platform.select({
     mono: 'monospace',
   },
   web: {
-    sans: 'var(--font-display)',
+    sans: 'var(--font-sans)',
     serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
+    rounded: 'var(--font-sans)',
     mono: 'var(--font-mono)',
   },
 });
