@@ -2,7 +2,16 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { useEffect } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import {
+  ActionSheetIOS,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -127,6 +136,82 @@ export default function ComposeScreen() {
     }
   };
 
+  const onTakePhoto = async () => {
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setError(t('카메라 접근 권한이 필요합니다.', 'Camera permission is required.'));
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.9,
+      });
+
+      if (result.canceled || !result.assets?.[0]?.uri) {
+        return;
+      }
+
+      setPickedImageUri(result.assets[0].uri);
+      setError(null);
+    } catch {
+      setError(
+        t(
+          '카메라 모듈을 불러오지 못했습니다. 앱을 다시 실행해주세요.',
+          'Failed to load camera module. Please restart the app.',
+        ),
+      );
+    }
+  };
+
+  const onPressPhotoArea = () => {
+    if (Platform.OS === 'ios') {
+      const options = [
+        t('취소', 'Cancel'),
+        t('갤러리에서 선택', 'Choose from Gallery'),
+        t('카메라로 촬영', 'Take Photo'),
+      ];
+      const destructiveButtonIndex = pickedImageUri ? 3 : undefined;
+      if (pickedImageUri) {
+        options.push(t('사진 제거', 'Remove Photo'));
+      }
+
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex: 0,
+          destructiveButtonIndex,
+        },
+        (index) => {
+          if (index === 1) {
+            void onPickFromGallery();
+            return;
+          }
+          if (index === 2) {
+            void onTakePhoto();
+            return;
+          }
+          if (pickedImageUri && index === 3) {
+            setPickedImageUri(null);
+          }
+        },
+      );
+      return;
+    }
+
+    Alert.alert(t('사진 선택', 'Select Photo'), t('사진을 가져올 방식을 선택하세요.', 'Choose how to add your photo.'), [
+      { text: t('취소', 'Cancel'), style: 'cancel' },
+      { text: t('갤러리에서 선택', 'Choose from Gallery'), onPress: () => void onPickFromGallery() },
+      { text: t('카메라로 촬영', 'Take Photo'), onPress: () => void onTakePhoto() },
+      ...(pickedImageUri
+        ? [{ text: t('사진 제거', 'Remove Photo'), style: 'destructive' as const, onPress: () => setPickedImageUri(null) }]
+        : []),
+    ]);
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -159,7 +244,7 @@ export default function ComposeScreen() {
               <ThemedText className="text-xs font-bold uppercase tracking-[0.8px]" style={{ color: theme.textSecondary }}>
                 {t('사진 선택', 'Pick Photo')}
               </ThemedText>
-              <View className="rounded-2xl border overflow-hidden" style={{ borderColor: theme.border, height: 220 }}>
+              <Pressable onPress={onPressPhotoArea} className="rounded-2xl border overflow-hidden" style={{ borderColor: theme.border, height: 220 }}>
                 {pickedImageUri ? (
                   <Image source={{ uri: pickedImageUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                 ) : (
@@ -167,31 +252,11 @@ export default function ComposeScreen() {
                     className="flex-1 items-center justify-center"
                     style={{ backgroundColor: theme.backgroundSelected }}>
                     <ThemedText className="text-sm font-semibold" style={{ color: theme.textSecondary }}>
-                      {t('사진을 선택해주세요', 'Please select a photo')}
+                      {t('사진 영역을 눌러 선택', 'Tap here to add photo')}
                     </ThemedText>
                   </View>
                 )}
-              </View>
-              <View className="flex-row gap-2">
-                <Pressable
-                  onPress={() => void onPickFromGallery()}
-                  className="rounded-full border px-3 py-1.5"
-                  style={{ borderColor: theme.border, backgroundColor: theme.backgroundSelected }}>
-                  <ThemedText className="text-xs font-bold" style={{ color: theme.text }}>
-                    {t('갤러리에서 선택', 'Pick from Gallery')}
-                  </ThemedText>
-                </Pressable>
-                {pickedImageUri ? (
-                  <Pressable
-                    onPress={() => setPickedImageUri(null)}
-                    className="rounded-full border px-3 py-1.5"
-                    style={{ borderColor: theme.border }}>
-                    <ThemedText className="text-xs font-bold" style={{ color: theme.textSecondary }}>
-                      {t('사진 제거', 'Remove Photo')}
-                    </ThemedText>
-                  </Pressable>
-                ) : null}
-              </View>
+              </Pressable>
             </View>
 
             <TextInput
