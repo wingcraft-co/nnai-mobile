@@ -9,6 +9,7 @@ type ScreenShellProps = PropsWithChildren<{
   eyebrow: string;
   title: string;
   subtitle: string;
+  invertEyebrow?: boolean;
   refreshControl?: React.ReactElement<RefreshControlProps>;
 }>;
 
@@ -17,6 +18,7 @@ export function ScreenShell({
   eyebrow,
   title,
   subtitle,
+  invertEyebrow = false,
   refreshControl,
 }: ScreenShellProps) {
   const theme = useTheme();
@@ -41,9 +43,15 @@ export function ScreenShell({
               elevation: 2,
             },
           ]}>
-          <ThemedText className="text-[13px] font-bold uppercase tracking-[1.2px]" style={{ color: theme.accent }}>
-            {eyebrow}
-          </ThemedText>
+          <View
+            className="self-start rounded-full px-3 py-1"
+            style={{ backgroundColor: invertEyebrow ? theme.accent : 'transparent' }}>
+            <ThemedText
+              className="text-[13px] font-bold uppercase tracking-[1.2px]"
+              style={{ color: invertEyebrow ? '#fff' : theme.accent }}>
+              {eyebrow}
+            </ThemedText>
+          </View>
           <ThemedText className="text-[34px] leading-[38px] font-bold">{title}</ThemedText>
           <ThemedText className="text-base leading-6 font-medium" style={{ color: theme.textSecondary }}>
             {subtitle}
