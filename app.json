@@ -8,9 +8,18 @@
     "scheme": "nnainomad",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "co.wingcraft.nnai.mobile",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.962318799283-7tsqbo64f14h6hfvgrn8b4fbgp43o6s5"
+            ]
+          }
+        ]
+      }
     },
     "android": {
       "package": "co.wingcraft.nnai.mobile",
@@ -37,7 +46,8 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
