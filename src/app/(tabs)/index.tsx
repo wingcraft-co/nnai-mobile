@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, RefreshControl, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
@@ -9,14 +11,16 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { createPost, fetchPosts, toggleLike } from '@/api/posts';
+import { fetchPosts, toggleLike } from '@/api/posts';
 import { ScreenShell } from '@/components/screen-shell';
+import { getLocalFeedImageByToken, getRandomFeedResourceImage } from '@/constants/feed-images';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import type { Post } from '@/types/api';
 
 export default function FeedScreen() {
+  const router = useRouter();
   const theme = useTheme();
   const { t } = useI18n();
   const { width } = useWindowDimensions();
@@ -24,13 +28,6 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [showComposer, setShowComposer] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [titleInput, setTitleInput] = useState('');
-  const [bodyInput, setBodyInput] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-  const [cityInput, setCityInput] = useState('');
 
   const loadPosts = useCallback(async () => {
     const data = await fetchPosts();
@@ -45,6 +42,16 @@ export default function FeedScreen() {
       })
       .finally(() => setLoading(false));
   }, [loadPosts, t]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (loading) return;
+      void loadPosts().catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : t('피드를 불러오지 못했습니다.', 'Failed to load feed.');
+        setError(message);
+      });
+    }, [loadPosts, loading, t]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -108,40 +115,6 @@ export default function FeedScreen() {
     }
   }, []);
 
-  const onCreate = useCallback(async () => {
-    if (!titleInput.trim() || !bodyInput.trim()) {
-      setError(t('제목과 내용을 입력해주세요.', 'Please enter both title and content.'));
-      return;
-    }
-
-    const tags = tagsInput
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-
-    setCreating(true);
-    setError(null);
-    try {
-      const created = await createPost({
-        title: titleInput.trim(),
-        body: bodyInput.trim(),
-        tags,
-        city: cityInput.trim() || null,
-      });
-      setPosts((prev) => [created, ...prev]);
-      setTitleInput('');
-      setBodyInput('');
-      setTagsInput('');
-      setCityInput('');
-      setShowComposer(false);
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : t('글 작성에 실패했습니다.', 'Failed to create post.');
-      setError(message);
-    } finally {
-      setCreating(false);
-    }
-  }, [bodyInput, cityInput, tagsInput, t, titleInput]);
-
   const pages = useMemo(() => chunk(posts, 4), [posts]);
   const cardSize = useMemo(() => {
     const horizontalPadding = 32; // ScreenShell content p-4 on both sides
@@ -152,90 +125,18 @@ export default function FeedScreen() {
   return (
     <ScreenShell
       eyebrow="NNAI Nomad"
-      title={t('피드를 눌러 뒤집고, 이야기와 태그를 확인하세요.', 'Tap cards to flip, then explore stories and tags.')}
-      subtitle={t('4컷 그리드 기반 인터랙티브 피드.', 'Interactive feed with four-panel grid cards.')}
+      invertEyebrow
+      title={t('오늘의 출근 도장', "Today's check-in")}
+      subtitle={t('지금 이 순간, 전 세계 노마드들도 일하고 있어요', "You're not alone — everyone's just starting")}
       refreshControl={refreshControl}>
       <Pressable
         className="self-start rounded-full border px-4 py-2"
         style={{ backgroundColor: theme.backgroundSelected, borderColor: theme.border }}
-        onPress={() => setShowComposer((v) => !v)}>
+        onPress={() => router.push('/compose')}>
         <ThemedText className="text-sm font-bold" style={{ color: theme.accent }}>
-          {showComposer ? t('작성 닫기', 'Close Composer') : t('새 글 쓰기', 'Write a Post')}
+          {t('새 글 쓰기', 'Write a Post')}
         </ThemedText>
       </Pressable>
-
-      {showComposer ? (
-        <View className="rounded-3xl border p-4 gap-2" style={{ backgroundColor: theme.backgroundElement, borderColor: theme.border }}>
-          <TextInput
-            value={titleInput}
-            onChangeText={setTitleInput}
-            placeholder={t('제목', 'Title')}
-            placeholderTextColor={theme.textSecondary}
-            style={{
-              color: theme.text,
-              borderColor: theme.border,
-              borderWidth: 1,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-            }}
-          />
-          <TextInput
-            value={bodyInput}
-            onChangeText={setBodyInput}
-            placeholder={t('내용', 'Body')}
-            placeholderTextColor={theme.textSecondary}
-            multiline
-            style={{
-              color: theme.text,
-              borderColor: theme.border,
-              borderWidth: 1,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              minHeight: 96,
-              textAlignVertical: 'top',
-            }}
-          />
-          <TextInput
-            value={tagsInput}
-            onChangeText={setTagsInput}
-            placeholder={t('태그 (쉼표로 구분)', 'Tags (comma separated)')}
-            placeholderTextColor={theme.textSecondary}
-            style={{
-              color: theme.text,
-              borderColor: theme.border,
-              borderWidth: 1,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-            }}
-          />
-          <TextInput
-            value={cityInput}
-            onChangeText={setCityInput}
-            placeholder={t('도시 (선택)', 'City (optional)')}
-            placeholderTextColor={theme.textSecondary}
-            style={{
-              color: theme.text,
-              borderColor: theme.border,
-              borderWidth: 1,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-            }}
-          />
-          <Pressable
-            className="self-start rounded-full px-4 py-2"
-            style={{ backgroundColor: theme.accent, opacity: creating ? 0.7 : 1 }}
-            onPress={() => void onCreate()}
-            disabled={creating}>
-            <ThemedText className="text-sm font-bold" style={{ color: '#fff' }}>
-              {creating ? t('작성 중...', 'Posting...') : t('피드에 올리기', 'Post to Feed')}
-            </ThemedText>
-          </Pressable>
-        </View>
-      ) : null}
 
       {error ? (
         <View className="rounded-2xl border p-4" style={{ backgroundColor: theme.backgroundElement, borderColor: theme.border }}>
@@ -312,7 +213,12 @@ function FlipPostCard({
     });
   };
 
-  const imageUri = post.picture?.trim() ? post.picture : `https://picsum.photos/seed/nnai-${post.id}/600/600`;
+  const imageSource = useMemo(() => {
+    const local = getLocalFeedImageByToken(post.picture);
+    if (local) return local;
+    if (post.picture?.trim()) return { uri: post.picture };
+    return getRandomFeedResourceImage();
+  }, [post.picture]);
 
   return (
     <Pressable
@@ -336,7 +242,7 @@ function FlipPostCard({
           },
           frontAnimatedStyle,
         ]}>
-        <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+        <Image source={imageSource} style={{ width: '100%', height: '100%' }} contentFit="cover" />
         <View
           style={{
             position: 'absolute',

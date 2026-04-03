@@ -12,6 +12,10 @@
       "bundleIdentifier": "co.wingcraft.nnai.mobile",
       "supportsTablet": true,
       "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Select photos to attach to your post.",
+        "NSPhotoLibraryAddUsageDescription": "Allow saving edited photos for your post.",
+        "NSCameraUsageDescription": "Allow camera access to take a photo for your post.",
+        "NSLocationWhenInUseUsageDescription": "Allow location access to auto-fill your current city.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
@@ -45,6 +49,19 @@
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Select photos to attach to your post.",
+          "cameraPermission": "Allow camera access to take a photo for your post."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow location access to auto-fill your current city."
         }
       ],
       "expo-secure-store"

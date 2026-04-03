@@ -288,6 +288,7 @@ export async function devMockApiRequest<T>(path: string, options: RequestInit = 
       body?: string;
       tags?: string[];
       city?: string | null;
+      picture?: string;
     };
 
     const nextId = posts.length > 0 ? Math.max(...posts.map((item) => item.id)) + 1 : 1;
@@ -295,7 +296,7 @@ export async function devMockApiRequest<T>(path: string, options: RequestInit = 
       id: nextId,
       user_id: devUser.uid,
       author: devUser.name,
-      picture: '',
+      picture: parsed.picture?.trim() || '',
       title: parsed.title?.trim() || tx('새 포스트', 'New post'),
       body: parsed.body?.trim() || '',
       tags: Array.isArray(parsed.tags) ? parsed.tags : [],
