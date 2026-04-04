@@ -9,24 +9,24 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#2a2a2a',
-    background: '#fafafa',
-    backgroundElement: '#f5f5f5',
-    backgroundSelected: '#efe8db',
-    textSecondary: '#6b6b6b',
-    accent: '#d97706',
-    destructive: '#dc2626',
-    border: '#dddddd',
+    text: '#333333',
+    background: '#f8f8f8',
+    backgroundElement: '#f2f2f2',
+    backgroundSelected: '#e8e5e0',
+    textSecondary: '#555555',
+    accent: '#c47a1a',
+    destructive: '#c53030',
+    border: '#d5cfc5',
   },
   dark: {
     text: '#f3f3f3',
-    background: '#1c1c1c',
+    background: '#1a1a1a',
     backgroundElement: '#2a2a2a',
-    backgroundSelected: '#343434',
-    textSecondary: '#b1b1b1',
-    accent: '#f59e0b',
-    destructive: '#f87171',
-    border: '#444444',
+    backgroundSelected: '#3a3a3a',
+    textSecondary: '#999999',
+    accent: '#d4952a',
+    destructive: '#e05050',
+    border: '#4a4540',
   },
 } as const;
 
@@ -34,13 +34,9 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {

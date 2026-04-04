@@ -156,6 +156,7 @@ export default function LoginScreen() {
                 name: t('모의 사용자', 'Mock User'),
                 picture: '',
                 email: 'mock@nnai.app',
+                nomad_type: 'wanderer',
               });
               router.replace('/(tabs)');
             }}>
@@ -179,6 +180,7 @@ export default function LoginScreen() {
                     name: t('개발 사용자', 'Dev User'),
                     picture: '',
                     email: 'dev@nnai.app',
+                    nomad_type: 'planner',
                   });
                   router.replace('/(tabs)');
                   return;

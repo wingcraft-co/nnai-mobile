@@ -6,6 +6,8 @@ import React, { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import '@/global.css';
+import { LoadingScreen } from '@/components/loading-screen';
+import { TypeGate } from '@/components/type-gate';
 import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/store/auth-store';
 
@@ -39,7 +41,11 @@ function RootLayoutNav() {
   }, [state.status]);
 
   if (state.status === 'loading') {
-    return null;
+    return <LoadingScreen />;
+  }
+
+  if (state.status === 'authenticated' && state.user.nomad_type === null) {
+    return <TypeGate />;
   }
 
   return (

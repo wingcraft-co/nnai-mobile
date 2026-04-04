@@ -31,7 +31,7 @@ export class ApiError extends Error {
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getToken();
 
-  if (__DEV__ && (token === MOCK_TOKEN || (DEV_MOCK_API_ENABLED && token === 'dev-token'))) {
+  if (__DEV__ && DEV_MOCK_API_ENABLED && (token === MOCK_TOKEN || token === 'dev-token')) {
     return devMockApiRequest<T>(path, options);
   }
 

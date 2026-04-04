@@ -1,8 +1,11 @@
+export type NomadType = 'free_spirit' | 'local' | 'pioneer' | 'planner' | 'wanderer';
+
 export type User = {
   uid: string;
   name: string;
   picture: string;
   email?: string;
+  nomad_type: NomadType | null;
 };
 
 export type Post = {
@@ -17,6 +20,7 @@ export type Post = {
   likes_count: number;
   created_at: string;
   liked: boolean;
+  author_nomad_type: NomadType;
 };
 
 export type Comment = {
@@ -81,10 +85,82 @@ export type Profile = {
   name: string;
   picture: string;
   email: string;
+  nomad_type: NomadType | null;
   badges: string[];
   stats: {
     pins: number;
     posts: number;
     circles: number;
   };
+};
+
+export type PlannerBoard = {
+  id: number;
+  country: string;
+  city: string | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlannerTask = {
+  id: number;
+  board_id: number;
+  text: string;
+  is_done: boolean;
+  due_date: string | null;
+  sort_order: number;
+};
+
+export type FreeSpiritSpin = {
+  spin_id: number;
+  selected: {
+    place_id: string;
+    name: string;
+    address?: string;
+    rating?: number;
+    lat?: number;
+    lng?: number;
+  };
+  candidates_count: number;
+};
+
+export type WandererHop = {
+  id: number;
+  from_country: string | null;
+  to_country: string;
+  to_city: string | null;
+  note: string | null;
+  target_month: string | null;
+  status: 'planned' | 'booked' | 'visited' | 'dropped';
+};
+
+export type LocalEventRec = {
+  id: number;
+  source: 'google_places' | 'eventbrite' | 'ticketmaster';
+  source_event_id: string;
+  title: string;
+  venue_name: string | null;
+  address: string | null;
+  country: string | null;
+  city: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  lat: number | null;
+  lng: number | null;
+  radius_m: number;
+  status: 'recommended' | 'saved' | 'attended' | 'hidden';
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type PioneerMilestone = {
+  id: number;
+  country: string;
+  city: string | null;
+  category: 'visa' | 'housing' | 'tax' | 'work' | 'language' | 'etc';
+  title: string;
+  status: 'todo' | 'doing' | 'done' | 'blocked';
+  target_date: string | null;
+  note: string | null;
 };

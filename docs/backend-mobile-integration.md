@@ -18,8 +18,10 @@
 - [ ] Step 8: Plans 라우터
 - [ ] Step 9: Profile 라우터
 - [ ] Step 10: Recommend 라우터
-- [ ] Step 11: main.py 라우터 등록
-- [ ] Step 12: 배포 확인
+- [ ] Step 11: Nomad Type Actions 마이그레이션
+- [ ] Step 12: Nomad Type Actions 라우터
+- [ ] Step 13: main.py 라우터 등록
+- [ ] Step 14: 배포 확인
 
 ---
 
@@ -781,7 +783,615 @@ async def mobile_detail(request: Request, user_id: str = Depends(require_mobile_
 
 ---
 
-## Step 11: main.py에 라우터 등록
+## Step 11: Nomad Type Actions 마이그레이션
+
+파일 생성: `migrations/002_nomad_type_actions.sql`
+
+```sql
+CREATE TABLE IF NOT EXISTS planner_boards (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country      TEXT NOT NULL,
+    city         TEXT,
+    title        TEXT NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS planner_tasks (
+    id           BIGSERIAL PRIMARY KEY,
+    board_id     BIGINT NOT NULL REFERENCES planner_boards(id) ON DELETE CASCADE,
+    text         TEXT NOT NULL,
+    is_done      BOOLEAN NOT NULL DEFAULT FALSE,
+    due_date     DATE,
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS free_spirit_spins (
+    id                   BIGSERIAL PRIMARY KEY,
+    user_id              TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country              TEXT,
+    city                 TEXT,
+    lat                  DOUBLE PRECISION NOT NULL,
+    lng                  DOUBLE PRECISION NOT NULL,
+    radius_m             INTEGER NOT NULL DEFAULT 1500,
+    keyword              TEXT NOT NULL DEFAULT 'cafe',
+    selected_place_id    TEXT,
+    selected_name        TEXT,
+    selected_address     TEXT,
+    selected_rating      DOUBLE PRECISION,
+    selected_lat         DOUBLE PRECISION,
+    selected_lng         DOUBLE PRECISION,
+    candidates           JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS wanderer_hops (
+    id                 BIGSERIAL PRIMARY KEY,
+    user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    from_country       TEXT,
+    to_country         TEXT NOT NULL,
+    to_city            TEXT,
+    note               TEXT,
+    target_month       TEXT,
+    status             TEXT NOT NULL DEFAULT 'planned'
+                       CHECK (status IN ('planned', 'booked', 'visited', 'dropped')),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS local_event_recs (
+    id                 BIGSERIAL PRIMARY KEY,
+    user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source             TEXT NOT NULL
+                       CHECK (source IN ('google_places', 'eventbrite', 'ticketmaster')),
+    source_event_id    TEXT NOT NULL,
+    title              TEXT NOT NULL,
+    venue_name         TEXT,
+    address            TEXT,
+    country            TEXT,
+    city               TEXT,
+    starts_at          TIMESTAMPTZ,
+    ends_at            TIMESTAMPTZ,
+    lat                DOUBLE PRECISION,
+    lng                DOUBLE PRECISION,
+    radius_m           INTEGER NOT NULL DEFAULT 5000,
+    status             TEXT NOT NULL DEFAULT 'saved'
+                       CHECK (status IN ('recommended', 'saved', 'attended', 'hidden')),
+    metadata           JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, source, source_event_id)
+);
+
+CREATE TABLE IF NOT EXISTS pioneer_milestones (
+    id                 BIGSERIAL PRIMARY KEY,
+    user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country            TEXT NOT NULL,
+    city               TEXT,
+    category           TEXT NOT NULL
+                       CHECK (category IN ('visa', 'housing', 'tax', 'work', 'language', 'etc')),
+    title              TEXT NOT NULL,
+    status             TEXT NOT NULL DEFAULT 'todo'
+                       CHECK (status IN ('todo', 'doing', 'done', 'blocked')),
+    target_date        DATE,
+    note               TEXT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_planner_boards_user_updated
+ON planner_boards (user_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_planner_tasks_board_sort
+ON planner_tasks (board_id, sort_order);
+
+CREATE INDEX IF NOT EXISTS idx_free_spirit_spins_user_created
+ON free_spirit_spins (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_wanderer_hops_user_status
+ON wanderer_hops (user_id, status, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_local_event_recs_user_status
+ON local_event_recs (user_id, status, starts_at);
+
+CREATE INDEX IF NOT EXISTS idx_pioneer_milestones_user_status
+ON pioneer_milestones (user_id, status, updated_at DESC);
+```
+
+실행:
+
+```bash
+psql $DATABASE_URL -f migrations/002_nomad_type_actions.sql
+```
+
+---
+
+## Step 12: Nomad Type Actions 라우터
+
+파일 생성: `routers/mobile_type_actions.py`
+
+필수 엔드포인트:
+
+- Planner
+  - `GET/POST /api/mobile/type-actions/planner/boards`
+  - `POST /api/mobile/type-actions/planner/boards/{board_id}/tasks`
+  - `PATCH/DELETE /api/mobile/type-actions/planner/tasks/{task_id}`
+- Free Spirit
+  - `POST /api/mobile/type-actions/free-spirit/spins`
+  - `GET /api/mobile/type-actions/free-spirit/spins`
+- Wanderer
+  - `GET/POST/PATCH/DELETE /api/mobile/type-actions/wanderer/hops`
+- Local
+  - `GET /api/mobile/type-actions/local/events/recommendations`
+  - `GET /api/mobile/type-actions/local/events/saved`
+  - `POST /api/mobile/type-actions/local/events/save`
+  - `PATCH /api/mobile/type-actions/local/events/{event_id}`
+- Pioneer
+  - `GET/POST/PATCH/DELETE /api/mobile/type-actions/pioneer/milestones`
+
+필수 환경변수:
+
+```env
+GOOGLE_PLACES_API_KEY=<google places api key>
+EVENTBRITE_API_TOKEN=<eventbrite token>
+TICKETMASTER_API_KEY=<ticketmaster key>
+```
+
+구현 규칙:
+- 모든 UPDATE/DELETE 쿼리에는 `AND user_id = %s`를 포함해 소유권 검증
+- Google Places 응답은 모바일 UI에 필요한 필드만 추출하여 `free_spirit_spins.candidates`에 저장
+- 스핀 결과는 후보 중 서버에서 무작위 1개를 선택해 `selected_*` 컬럼에 저장
+- Local 이벤트 추천은 `Google Places`를 먼저 조회하고, 결과가 부족하면 `Eventbrite/Ticketmaster`를 fallback으로 조회
+- Local 이벤트 추천 기본 반경은 `5000m`, 푸시 없이 인앱 조회 전용으로 제공
+
+스켈레톤 코드:
+
+```python
+# routers/mobile_type_actions.py
+import json
+import os
+import random
+from datetime import datetime
+from typing import Optional
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from utils.db import get_conn
+from utils.mobile_auth import require_mobile_auth
+
+router = APIRouter(prefix="/api/mobile/type-actions", tags=["mobile-type-actions"])
+
+GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY")
+EVENTBRITE_API_TOKEN = os.environ.get("EVENTBRITE_API_TOKEN")
+TICKETMASTER_API_KEY = os.environ.get("TICKETMASTER_API_KEY")
+
+
+# ---------- Planner ----------
+class PlannerBoardCreate(BaseModel):
+    country: str
+    city: Optional[str] = None
+    title: str
+
+
+class PlannerTaskCreate(BaseModel):
+    text: str
+    due_date: Optional[str] = None
+    sort_order: int = 0
+
+
+class PlannerTaskPatch(BaseModel):
+    is_done: Optional[bool] = None
+    text: Optional[str] = None
+    due_date: Optional[str] = None
+
+
+@router.get("/planner/boards")
+def get_planner_boards(user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT id, country, city, title, created_at, updated_at
+        FROM planner_boards
+        WHERE user_id = %s
+        ORDER BY updated_at DESC
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    return [
+        {
+            "id": r[0],
+            "country": r[1],
+            "city": r[2],
+            "title": r[3],
+            "created_at": str(r[4]),
+            "updated_at": str(r[5]),
+        }
+        for r in rows
+    ]
+
+
+@router.post("/planner/boards", status_code=201)
+def create_planner_board(body: PlannerBoardCreate, user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO planner_boards (user_id, country, city, title)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id, country, city, title, created_at, updated_at
+        """,
+        (user_id, body.country, body.city, body.title),
+    )
+    conn.commit()
+    r = cur.fetchone()
+    return {
+        "id": r[0],
+        "country": r[1],
+        "city": r[2],
+        "title": r[3],
+        "created_at": str(r[4]),
+        "updated_at": str(r[5]),
+    }
+
+
+@router.patch("/planner/boards/{board_id}")
+def patch_planner_board(
+    board_id: int,
+    body: PlannerBoardCreate,
+    user_id: str = Depends(require_mobile_auth),
+):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE planner_boards
+        SET country = %s, city = %s, title = %s, updated_at = NOW()
+        WHERE id = %s AND user_id = %s
+        RETURNING id, country, city, title, created_at, updated_at
+        """,
+        (body.country, body.city, body.title, board_id, user_id),
+    )
+    conn.commit()
+    r = cur.fetchone()
+    if not r:
+        raise HTTPException(status_code=404, detail="Board not found")
+    return {
+        "id": r[0],
+        "country": r[1],
+        "city": r[2],
+        "title": r[3],
+        "created_at": str(r[4]),
+        "updated_at": str(r[5]),
+    }
+
+
+@router.delete("/planner/boards/{board_id}", status_code=204)
+def delete_planner_board(board_id: int, user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM planner_boards WHERE id = %s AND user_id = %s RETURNING id", (board_id, user_id))
+    conn.commit()
+    if not cur.fetchone():
+        raise HTTPException(status_code=404, detail="Board not found")
+
+
+@router.post("/planner/boards/{board_id}/tasks", status_code=201)
+def create_planner_task(board_id: int, body: PlannerTaskCreate, user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM planner_boards WHERE id = %s AND user_id = %s", (board_id, user_id))
+    if not cur.fetchone():
+        raise HTTPException(status_code=404, detail="Board not found")
+    cur.execute(
+        """
+        INSERT INTO planner_tasks (board_id, text, due_date, sort_order)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id, board_id, text, is_done, due_date, sort_order
+        """,
+        (board_id, body.text, body.due_date, body.sort_order),
+    )
+    conn.commit()
+    r = cur.fetchone()
+    return {
+        "id": r[0],
+        "board_id": r[1],
+        "text": r[2],
+        "is_done": r[3],
+        "due_date": str(r[4]) if r[4] else None,
+        "sort_order": r[5],
+    }
+
+
+@router.patch("/planner/tasks/{task_id}")
+def patch_planner_task(task_id: int, body: PlannerTaskPatch, user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT t.id
+        FROM planner_tasks t
+        JOIN planner_boards b ON b.id = t.board_id
+        WHERE t.id = %s AND b.user_id = %s
+        """,
+        (task_id, user_id),
+    )
+    if not cur.fetchone():
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    cur.execute(
+        """
+        UPDATE planner_tasks
+        SET is_done = COALESCE(%s, is_done),
+            text = COALESCE(%s, text),
+            due_date = COALESCE(%s, due_date),
+            updated_at = NOW()
+        WHERE id = %s
+        RETURNING id, board_id, text, is_done, due_date, sort_order
+        """,
+        (body.is_done, body.text, body.due_date, task_id),
+    )
+    conn.commit()
+    r = cur.fetchone()
+    return {
+        "id": r[0],
+        "board_id": r[1],
+        "text": r[2],
+        "is_done": r[3],
+        "due_date": str(r[4]) if r[4] else None,
+        "sort_order": r[5],
+    }
+
+
+@router.delete("/planner/tasks/{task_id}", status_code=204)
+def delete_planner_task(task_id: int, user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        DELETE FROM planner_tasks t
+        USING planner_boards b
+        WHERE t.id = %s
+          AND t.board_id = b.id
+          AND b.user_id = %s
+        RETURNING t.id
+        """,
+        (task_id, user_id),
+    )
+    conn.commit()
+    if not cur.fetchone():
+        raise HTTPException(status_code=404, detail="Task not found")
+
+
+# ---------- Free Spirit ----------
+class SpinCreate(BaseModel):
+    country: Optional[str] = None
+    city: Optional[str] = None
+    lat: float
+    lng: float
+    radius_m: int = 1500
+    keyword: str = "cafe"
+
+
+async def _fetch_google_places(lat: float, lng: float, radius_m: int, keyword: str) -> list[dict]:
+    if not GOOGLE_PLACES_API_KEY:
+        return []
+    url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    params = {
+        "location": f"{lat},{lng}",
+        "radius": radius_m,
+        "keyword": keyword,
+        "key": GOOGLE_PLACES_API_KEY,
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        res = await client.get(url, params=params)
+    if res.status_code != 200:
+        return []
+    data = res.json().get("results", [])
+    return [
+        {
+            "place_id": item.get("place_id"),
+            "name": item.get("name"),
+            "address": item.get("vicinity"),
+            "rating": item.get("rating"),
+            "lat": item.get("geometry", {}).get("location", {}).get("lat"),
+            "lng": item.get("geometry", {}).get("location", {}).get("lng"),
+        }
+        for item in data[:20]
+        if item.get("place_id") and item.get("name")
+    ]
+
+
+@router.post("/free-spirit/spins")
+async def create_free_spirit_spin(body: SpinCreate, user_id: str = Depends(require_mobile_auth)):
+    candidates = await _fetch_google_places(body.lat, body.lng, body.radius_m, body.keyword)
+    if not candidates:
+        raise HTTPException(status_code=404, detail="No candidates found")
+    selected = random.choice(candidates)
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO free_spirit_spins (
+            user_id, country, city, lat, lng, radius_m, keyword,
+            selected_place_id, selected_name, selected_address, selected_rating, selected_lat, selected_lng,
+            candidates
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+        RETURNING id
+        """,
+        (
+            user_id,
+            body.country,
+            body.city,
+            body.lat,
+            body.lng,
+            body.radius_m,
+            body.keyword,
+            selected["place_id"],
+            selected["name"],
+            selected.get("address"),
+            selected.get("rating"),
+            selected.get("lat"),
+            selected.get("lng"),
+            json.dumps(candidates),
+        ),
+    )
+    conn.commit()
+    spin_id = cur.fetchone()[0]
+    return {"spin_id": spin_id, "selected": selected, "candidates_count": len(candidates)}
+
+
+# ---------- Local Events ----------
+class LocalEventSave(BaseModel):
+    source: str = Field(pattern="^(google_places|eventbrite|ticketmaster)$")
+    source_event_id: str
+    title: str
+    venue_name: Optional[str] = None
+    address: Optional[str] = None
+    country: Optional[str] = None
+    city: Optional[str] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    radius_m: int = 5000
+
+
+class LocalEventPatch(BaseModel):
+    status: str = Field(pattern="^(recommended|saved|attended|hidden)$")
+
+
+@router.get("/local/events/recommendations")
+async def get_local_event_recommendations(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    radius_m: int = Query(5000, ge=500, le=20000),
+):
+    # 1) Google Places 우선 조회
+    places = await _fetch_google_places(lat, lng, radius_m, "festival OR event")
+    if len(places) >= 6:
+        return {"source_priority": ["google_places"], "items": places}
+
+    # 2) 부족하면 Eventbrite/Ticketmaster fallback (스켈레톤)
+    fallback_items: list[dict] = []
+    if EVENTBRITE_API_TOKEN:
+        fallback_items.append({"source": "eventbrite", "title": "Sample Eventbrite Event"})
+    if TICKETMASTER_API_KEY:
+        fallback_items.append({"source": "ticketmaster", "title": "Sample Ticketmaster Event"})
+    return {"source_priority": ["google_places", "eventbrite", "ticketmaster"], "items": places + fallback_items}
+
+
+@router.get("/local/events/saved")
+def get_saved_local_events(user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT id, source, source_event_id, title, venue_name, address, country, city,
+               starts_at, ends_at, lat, lng, radius_m, status, created_at, updated_at
+        FROM local_event_recs
+        WHERE user_id = %s
+        ORDER BY updated_at DESC
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    return [
+        {
+            "id": r[0],
+            "source": r[1],
+            "source_event_id": r[2],
+            "title": r[3],
+            "venue_name": r[4],
+            "address": r[5],
+            "country": r[6],
+            "city": r[7],
+            "starts_at": str(r[8]) if r[8] else None,
+            "ends_at": str(r[9]) if r[9] else None,
+            "lat": r[10],
+            "lng": r[11],
+            "radius_m": r[12],
+            "status": r[13],
+            "created_at": str(r[14]),
+            "updated_at": str(r[15]),
+        }
+        for r in rows
+    ]
+
+
+@router.post("/local/events/save", status_code=201)
+def save_local_event(body: LocalEventSave, user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO local_event_recs (
+            user_id, source, source_event_id, title, venue_name, address,
+            country, city, starts_at, ends_at, lat, lng, radius_m, status
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'saved')
+        ON CONFLICT (user_id, source, source_event_id)
+        DO UPDATE SET updated_at = NOW(), status = 'saved'
+        RETURNING id
+        """,
+        (
+            user_id,
+            body.source,
+            body.source_event_id,
+            body.title,
+            body.venue_name,
+            body.address,
+            body.country,
+            body.city,
+            body.starts_at,
+            body.ends_at,
+            body.lat,
+            body.lng,
+            body.radius_m,
+        ),
+    )
+    conn.commit()
+    return {"id": cur.fetchone()[0], "status": "saved"}
+
+
+@router.patch("/local/events/{event_id}")
+def patch_local_event(event_id: int, body: LocalEventPatch, user_id: str = Depends(require_mobile_auth)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE local_event_recs
+        SET status = %s, updated_at = NOW()
+        WHERE id = %s AND user_id = %s
+        RETURNING id, status
+        """,
+        (body.status, event_id, user_id),
+    )
+    conn.commit()
+    r = cur.fetchone()
+    if not r:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"id": r[0], "status": r[1]}
+
+
+# ---------- Wanderer / Local / Pioneer ----------
+# 나머지 CRUD도 동일 패턴으로 구현:
+# - INSERT 시 user_id 포함
+# - UPDATE/DELETE 시 id + user_id 소유권 검증
+# - 목록은 updated_at DESC 정렬
+```
+
+---
+
+## Step 13: main.py에 라우터 등록
 
 기존 `main.py`의 라우터 등록 부분에 아래 코드를 **추가**합니다 (기존 코드 수정 없이):
 
@@ -793,6 +1403,7 @@ from routers.mobile_discover import router as mobile_discover_router
 from routers.mobile_plans import router as mobile_plans_router
 from routers.mobile_profile import router as mobile_profile_router
 from routers.mobile_recommend import router as mobile_recommend_router
+from routers.mobile_type_actions import router as mobile_type_actions_router
 
 app.include_router(mobile_auth_router)
 app.include_router(mobile_feed_router)
@@ -800,11 +1411,12 @@ app.include_router(mobile_discover_router)
 app.include_router(mobile_plans_router)
 app.include_router(mobile_profile_router)
 app.include_router(mobile_recommend_router)
+app.include_router(mobile_type_actions_router)
 ```
 
 ---
 
-## Step 12: 배포 확인
+## Step 14: 배포 확인
 
 Railway에 push 후:
 
@@ -831,6 +1443,7 @@ curl https://api.nnai.app/api/mobile/posts
 ```
 migrations/
   001_mobile_tables.sql
+  002_nomad_type_actions.sql
 
 utils/
   mobile_auth.py          ← 신규
@@ -842,8 +1455,9 @@ routers/
   mobile_plans.py         ← 신규
   mobile_profile.py       ← 신규
   mobile_recommend.py     ← 신규 (recommend import 경로 확인 필요)
+  mobile_type_actions.py  ← 신규
 
-main.py                   ← 6줄 추가 (기존 코드 수정 없음)
+main.py                   ← 8줄 추가 (기존 코드 수정 없음)
 ```
 
 **기존 파일 수정 없음** — 웹 서비스에 영향 없습니다.
