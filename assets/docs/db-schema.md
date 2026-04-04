@@ -3,7 +3,7 @@
 > 프론트엔드 개발자용 데이터베이스 스키마 레퍼런스
 > DB: PostgreSQL (Railway)
 > 정의 위치: `utils/db.py` → `init_db()`
-> 최종 업데이트: 2026-04-01
+> 최종 업데이트: 2026-04-05
 
 ---
 
@@ -13,6 +13,12 @@
 |--------|------|
 | `users` | Google OAuth 로그인 유저 |
 | `pins` | 유저가 저장한 관심 도시 |
+| `planner_boards` | 영리한 설계자용 도시별 체크리스트 보드 |
+| `planner_tasks` | 체크리스트 보드의 할 일 항목 |
+| `free_spirit_spins` | 자유로운 영혼용 카페 돌림판 실행 로그 |
+| `wanderer_hops` | 거침없는 나그네용 다음 이동 계획 |
+| `local_event_recs` | 어디서든 현지인용 위치 기반 이벤트 추천/저장 |
+| `pioneer_milestones` | 용감한 개척자용 정착/이주 마일스톤 |
 | `visits` | 경로별 방문자 수 집계 |
 | `verified_sources` | 검증 데이터 출처(소스) 목록 |
 | `verified_countries` | 검증된 국가별 비자 데이터 |
@@ -79,6 +85,238 @@ CREATE TABLE IF NOT EXISTS pins (
 | `user_lat` | REAL | NULL 가능 | 저장 시점의 유저 위치 위도 |
 | `user_lng` | REAL | NULL 가능 | 저장 시점의 유저 위치 경도 |
 | `created_at` | TEXT | NOT NULL | 저장 시각 (ISO 8601 UTC) |
+
+---
+
+## planner_boards
+
+`영리한 설계자` 타입의 도시/국가별 TODO 보드입니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS planner_boards (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country      TEXT NOT NULL,
+    city         TEXT,
+    title        TEXT NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `id` | BIGSERIAL PK | NOT NULL | 보드 ID |
+| `user_id` | TEXT FK | NOT NULL | `users.id` 참조 |
+| `country` | TEXT | NOT NULL | 대상 국가 |
+| `city` | TEXT | NULL 가능 | 대상 도시 |
+| `title` | TEXT | NOT NULL | 보드 제목 |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 생성 시각 |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | 수정 시각 |
+
+---
+
+## planner_tasks
+
+`planner_boards` 하위 체크리스트 항목입니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS planner_tasks (
+    id           BIGSERIAL PRIMARY KEY,
+    board_id     BIGINT NOT NULL REFERENCES planner_boards(id) ON DELETE CASCADE,
+    text         TEXT NOT NULL,
+    is_done      BOOLEAN NOT NULL DEFAULT FALSE,
+    due_date     DATE,
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `id` | BIGSERIAL PK | NOT NULL | 항목 ID |
+| `board_id` | BIGINT FK | NOT NULL | `planner_boards.id` 참조 |
+| `text` | TEXT | NOT NULL | 할 일 텍스트 |
+| `is_done` | BOOLEAN | NOT NULL | 완료 여부 |
+| `due_date` | DATE | NULL 가능 | 마감일 |
+| `sort_order` | INTEGER | NOT NULL | 정렬 순서 |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 생성 시각 |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | 수정 시각 |
+
+---
+
+## free_spirit_spins
+
+`자유로운 영혼` 타입의 "오늘 카페 어디 갈지" 돌림판 실행 이력입니다.
+Google Places 응답 후보/선택 결과를 함께 저장합니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS free_spirit_spins (
+    id                   BIGSERIAL PRIMARY KEY,
+    user_id              TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country              TEXT,
+    city                 TEXT,
+    lat                  DOUBLE PRECISION NOT NULL,
+    lng                  DOUBLE PRECISION NOT NULL,
+    radius_m             INTEGER NOT NULL DEFAULT 1500,
+    keyword              TEXT NOT NULL DEFAULT 'cafe',
+    selected_place_id    TEXT,
+    selected_name        TEXT,
+    selected_address     TEXT,
+    selected_rating      DOUBLE PRECISION,
+    selected_lat         DOUBLE PRECISION,
+    selected_lng         DOUBLE PRECISION,
+    candidates           JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `id` | BIGSERIAL PK | NOT NULL | 스핀 ID |
+| `user_id` | TEXT FK | NOT NULL | `users.id` 참조 |
+| `country` | TEXT | NULL 가능 | 선택 국가 |
+| `city` | TEXT | NULL 가능 | 선택 도시 |
+| `lat` | DOUBLE PRECISION | NOT NULL | 탐색 중심 위도 |
+| `lng` | DOUBLE PRECISION | NOT NULL | 탐색 중심 경도 |
+| `radius_m` | INTEGER | NOT NULL | 탐색 반경(m) |
+| `keyword` | TEXT | NOT NULL | 장소 키워드 (기본: cafe) |
+| `selected_place_id` | TEXT | NULL 가능 | 당첨 장소 Place ID |
+| `selected_name` | TEXT | NULL 가능 | 당첨 장소 이름 |
+| `selected_address` | TEXT | NULL 가능 | 당첨 장소 주소 |
+| `selected_rating` | DOUBLE PRECISION | NULL 가능 | 당첨 장소 평점 |
+| `selected_lat` | DOUBLE PRECISION | NULL 가능 | 당첨 장소 위도 |
+| `selected_lng` | DOUBLE PRECISION | NULL 가능 | 당첨 장소 경도 |
+| `candidates` | JSONB | NOT NULL | 후보 장소 배열 |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 실행 시각 |
+
+---
+
+## wanderer_hops
+
+`거침없는 나그네` 타입의 다음 이동 목표(홉) 관리 테이블입니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS wanderer_hops (
+    id                 BIGSERIAL PRIMARY KEY,
+    user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    from_country       TEXT,
+    to_country         TEXT NOT NULL,
+    to_city            TEXT,
+    note               TEXT,
+    target_month       TEXT,
+    status             TEXT NOT NULL DEFAULT 'planned'
+                       CHECK (status IN ('planned', 'booked', 'visited', 'dropped')),
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `id` | BIGSERIAL PK | NOT NULL | 홉 ID |
+| `user_id` | TEXT FK | NOT NULL | `users.id` 참조 |
+| `from_country` | TEXT | NULL 가능 | 출발 국가 |
+| `to_country` | TEXT | NOT NULL | 도착 국가 |
+| `to_city` | TEXT | NULL 가능 | 도착 도시 |
+| `note` | TEXT | NULL 가능 | 메모 |
+| `target_month` | TEXT | NULL 가능 | 목표 월 (예: 2026-08) |
+| `status` | TEXT | NOT NULL | 상태 (`planned/booked/visited/dropped`) |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 생성 시각 |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | 수정 시각 |
+
+---
+
+## local_event_recs
+
+`어디서든 현지인` 타입의 위치 기반 이벤트 추천 결과 및 사용자 저장 상태입니다.
+조회 우선순위는 `Google Places → Eventbrite/Ticketmaster fallback`입니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS local_event_recs (
+    id                 BIGSERIAL PRIMARY KEY,
+    user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source             TEXT NOT NULL
+                       CHECK (source IN ('google_places', 'eventbrite', 'ticketmaster')),
+    source_event_id    TEXT NOT NULL,
+    title              TEXT NOT NULL,
+    venue_name         TEXT,
+    address            TEXT,
+    country            TEXT,
+    city               TEXT,
+    starts_at          TIMESTAMPTZ,
+    ends_at            TIMESTAMPTZ,
+    lat                DOUBLE PRECISION,
+    lng                DOUBLE PRECISION,
+    radius_m           INTEGER NOT NULL DEFAULT 5000,
+    status             TEXT NOT NULL DEFAULT 'saved'
+                       CHECK (status IN ('recommended', 'saved', 'attended', 'hidden')),
+    metadata           JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, source, source_event_id)
+);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `id` | BIGSERIAL PK | NOT NULL | 이벤트 저장 ID |
+| `user_id` | TEXT FK | NOT NULL | `users.id` 참조 |
+| `source` | TEXT | NOT NULL | 데이터 소스 (`google_places/eventbrite/ticketmaster`) |
+| `source_event_id` | TEXT | NOT NULL | 소스 이벤트 고유 ID |
+| `title` | TEXT | NOT NULL | 이벤트 제목 |
+| `venue_name` | TEXT | NULL 가능 | 장소/베뉴명 |
+| `address` | TEXT | NULL 가능 | 주소 |
+| `country` | TEXT | NULL 가능 | 국가 |
+| `city` | TEXT | NULL 가능 | 도시 |
+| `starts_at` | TIMESTAMPTZ | NULL 가능 | 시작 시각 |
+| `ends_at` | TIMESTAMPTZ | NULL 가능 | 종료 시각 |
+| `lat` | DOUBLE PRECISION | NULL 가능 | 이벤트 위도 |
+| `lng` | DOUBLE PRECISION | NULL 가능 | 이벤트 경도 |
+| `radius_m` | INTEGER | NOT NULL | 탐색 반경 (기본 5000m) |
+| `status` | TEXT | NOT NULL | 상태 (`recommended/saved/attended/hidden`) |
+| `metadata` | JSONB | NOT NULL | 원본 일부 메타데이터 |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 생성 시각 |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | 수정 시각 |
+
+---
+
+## pioneer_milestones
+
+`용감한 개척자` 타입의 이주/정착 마일스톤 관리 테이블입니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS pioneer_milestones (
+    id                 BIGSERIAL PRIMARY KEY,
+    user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    country            TEXT NOT NULL,
+    city               TEXT,
+    category           TEXT NOT NULL
+                       CHECK (category IN ('visa', 'housing', 'tax', 'work', 'language', 'etc')),
+    title              TEXT NOT NULL,
+    status             TEXT NOT NULL DEFAULT 'todo'
+                       CHECK (status IN ('todo', 'doing', 'done', 'blocked')),
+    target_date        DATE,
+    note               TEXT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+| 컬럼 | 타입 | Null | 설명 |
+|------|------|------|------|
+| `id` | BIGSERIAL PK | NOT NULL | 마일스톤 ID |
+| `user_id` | TEXT FK | NOT NULL | `users.id` 참조 |
+| `country` | TEXT | NOT NULL | 목표 국가 |
+| `city` | TEXT | NULL 가능 | 목표 도시 |
+| `category` | TEXT | NOT NULL | 분류 (`visa/housing/tax/work/language/etc`) |
+| `title` | TEXT | NOT NULL | 마일스톤 제목 |
+| `status` | TEXT | NOT NULL | 상태 (`todo/doing/done/blocked`) |
+| `target_date` | DATE | NULL 가능 | 목표일 |
+| `note` | TEXT | NULL 가능 | 메모 |
+| `created_at` | TIMESTAMPTZ | NOT NULL | 생성 시각 |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | 수정 시각 |
 
 ---
 
@@ -273,6 +511,12 @@ CREATE TABLE IF NOT EXISTS verification_logs (
 |--------|------------|------|------|
 | `idx_verified_cities_country_id` | `verified_cities` | `country_id` | 국가별 도시 조회 최적화 |
 | `idx_verification_logs_entity` | `verification_logs` | `(entity_type, entity_id)` | 엔티티별 로그 조회 최적화 |
+| `idx_planner_boards_user_updated` | `planner_boards` | `(user_id, updated_at DESC)` | 유저 보드 목록 조회 |
+| `idx_planner_tasks_board_sort` | `planner_tasks` | `(board_id, sort_order)` | 보드별 태스크 정렬 조회 |
+| `idx_free_spirit_spins_user_created` | `free_spirit_spins` | `(user_id, created_at DESC)` | 스핀 히스토리 조회 |
+| `idx_wanderer_hops_user_status` | `wanderer_hops` | `(user_id, status, updated_at DESC)` | 홉 상태별 조회 |
+| `idx_local_event_recs_user_status` | `local_event_recs` | `(user_id, status, starts_at)` | 이벤트 상태/시간 조회 |
+| `idx_pioneer_milestones_user_status` | `pioneer_milestones` | `(user_id, status, updated_at DESC)` | 마일스톤 상태별 조회 |
 
 ---
 
@@ -281,6 +525,12 @@ CREATE TABLE IF NOT EXISTS verification_logs (
 ```
 users (id)
   └── pins (user_id) — 1:N
+  └── planner_boards (user_id) — 1:N
+      └── planner_tasks (board_id) — 1:N
+  └── free_spirit_spins (user_id) — 1:N
+  └── wanderer_hops (user_id) — 1:N
+  └── local_event_recs (user_id) — 1:N
+  └── pioneer_milestones (user_id) — 1:N
 
 visits — 독립 테이블 (외래키 없음)
 

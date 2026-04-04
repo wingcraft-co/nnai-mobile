@@ -40,27 +40,18 @@ export default function AppTabs() {
         }}
       />
       <Tabs.Screen
-        name="discover"
+        name="city"
         options={{
-          title: t('탐색', 'Discover'),
+          title: t('도시', 'City'),
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons color={color} name="compass-outline" size={size} />
           ),
         }}
       />
       <Tabs.Screen
-        name="plans"
+        name="me"
         options={{
-          title: t('플랜', 'Moves'),
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons color={color} name="briefcase-outline" size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t('프로필', 'Profile'),
+          title: t('나', 'Me'),
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons color={color} name="account-circle-outline" size={size} />
           ),

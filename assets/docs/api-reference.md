@@ -3,7 +3,7 @@
 > 프론트엔드 개발자용 백엔드 API 레퍼런스
 > Base URL (로컬): `http://localhost:7860`
 > Base URL (프로덕션): `https://api.nnai.app`
-> 최종 업데이트: 2026-04-01
+> 최종 업데이트: 2026-04-05
 
 ---
 
@@ -13,8 +13,9 @@
 2. [추천 API](#추천-api)
 3. [핀 API](#핀-api)
 4. [방문자 카운터 API](#방문자-카운터-api)
-5. [공통 에러](#공통-에러)
-6. [CORS & 쿠키 정책](#cors--쿠키-정책)
+5. [모바일 노마드 타입 액션 API](#모바일-노마드-타입-액션-api)
+6. [공통 에러](#공통-에러)
+7. [CORS & 쿠키 정책](#cors--쿠키-정책)
 
 ---
 
@@ -292,7 +293,7 @@ Cookie: nnai_session=...
 | `user_lat` | float \| null | ❌ | 사용자 현재 위치 위도 |
 | `user_lng` | float \| null | ❌ | 사용자 현재 위치 경도 |
 
-**응답 (200 OK):**
+**응답 (201 Created):**
 ```json
 {
   "id": 42,
@@ -440,6 +441,178 @@ GET /api/visits?path=/dev
 ```
 
 > 방문 기록이 없는 경로는 `count: 0`을 반환합니다.
+
+---
+
+## 모바일 노마드 타입 액션 API
+
+모바일 3번째 탭(`Me`)의 타입별 액션 저장 API입니다.  
+모든 `/api/mobile/type-actions/*` 엔드포인트는 **Bearer JWT 인증 필수**입니다.
+
+### 공통
+
+- Base: `/api/mobile/type-actions`
+- Header: `Authorization: Bearer <jwt>`
+- 공통 응답 에러:
+  - `401` 인증 실패
+  - `404` 본인 소유 리소스 없음
+  - `422` 요청 필드/형식 오류
+
+### 1) 영리한 설계자 (Planner)
+
+도시/국가별 체크리스트 보드와 태스크를 관리합니다.
+
+- `GET /api/mobile/type-actions/planner/boards`
+- `POST /api/mobile/type-actions/planner/boards`
+- `PATCH /api/mobile/type-actions/planner/boards/{board_id}`
+- `DELETE /api/mobile/type-actions/planner/boards/{board_id}`
+- `POST /api/mobile/type-actions/planner/boards/{board_id}/tasks`
+- `PATCH /api/mobile/type-actions/planner/tasks/{task_id}`
+- `DELETE /api/mobile/type-actions/planner/tasks/{task_id}`
+
+보드 생성 요청 예시:
+```json
+{
+  "country": "Portugal",
+  "city": "Lisbon",
+  "title": "Lisbon relocation checklist"
+}
+```
+
+태스크 토글 요청 예시:
+```json
+{
+  "is_done": true
+}
+```
+
+### 2) 자유로운 영혼 (Free Spirit)
+
+Google Places 기반 후보 카페를 받아 돌림판 실행 후 당첨 장소를 저장합니다.
+
+- `POST /api/mobile/type-actions/free-spirit/spins`
+- `GET /api/mobile/type-actions/free-spirit/spins?limit=20`
+
+요청 예시:
+```json
+{
+  "country": "Korea",
+  "city": "Seoul",
+  "lat": 37.5665,
+  "lng": 126.9780,
+  "radius_m": 1500,
+  "keyword": "cafe"
+}
+```
+
+응답 예시:
+```json
+{
+  "spin_id": 183,
+  "selected": {
+    "place_id": "ChIJ...",
+    "name": "Some Cafe",
+    "address": "Seoul ...",
+    "rating": 4.5,
+    "lat": 37.56,
+    "lng": 126.97
+  },
+  "candidates_count": 18
+}
+```
+
+필수 환경변수:
+- `GOOGLE_PLACES_API_KEY`
+
+### 3) 거침없는 나그네 (Wanderer)
+
+다음 이동(홉) 계획을 저장/관리합니다.
+
+- `GET /api/mobile/type-actions/wanderer/hops`
+- `POST /api/mobile/type-actions/wanderer/hops`
+- `PATCH /api/mobile/type-actions/wanderer/hops/{hop_id}`
+- `DELETE /api/mobile/type-actions/wanderer/hops/{hop_id}`
+
+생성 요청 예시:
+```json
+{
+  "from_country": "Thailand",
+  "to_country": "Vietnam",
+  "to_city": "Da Nang",
+  "target_month": "2026-08",
+  "note": "2 weeks slow travel",
+  "status": "planned"
+}
+```
+
+### 4) 어디서든 현지인 (Local)
+
+위치 기반 이벤트 추천/저장 액션 전용입니다.
+
+위치 기반 이벤트 추천(인앱 전용):
+
+- `GET /api/mobile/type-actions/local/events/recommendations`
+- `GET /api/mobile/type-actions/local/events/saved`
+- `POST /api/mobile/type-actions/local/events/save`
+- `PATCH /api/mobile/type-actions/local/events/{event_id}`
+
+추천 조회 쿼리:
+- `lat` (필수)
+- `lng` (필수)
+- `radius_m` (선택, 기본 `5000`)
+- `country` / `city` (선택)
+
+추천 동작 규칙:
+- 1차: `Google Places` 조회
+- 후보가 임계치 이하일 경우 2차: `Eventbrite` + `Ticketmaster` fallback 조회
+- 응답에는 `source` 필드 포함 (`google_places/eventbrite/ticketmaster`)
+
+이벤트 저장 요청 예시:
+```json
+{
+  "source": "google_places",
+  "source_event_id": "ChIJ...",
+  "title": "Jazz Night at Riverside",
+  "venue_name": "Riverside Cafe",
+  "address": "Seoul ...",
+  "country": "Korea",
+  "city": "Seoul",
+  "starts_at": "2026-04-06T19:00:00+09:00",
+  "ends_at": "2026-04-06T21:00:00+09:00",
+  "lat": 37.5665,
+  "lng": 126.9780,
+  "radius_m": 5000
+}
+```
+
+이벤트 상태 변경 요청 예시:
+```json
+{
+  "status": "attended"
+}
+```
+
+### 5) 용감한 개척자 (Pioneer)
+
+비자/정착 마일스톤을 저장하고 진행 상태를 추적합니다.
+
+- `GET /api/mobile/type-actions/pioneer/milestones`
+- `POST /api/mobile/type-actions/pioneer/milestones`
+- `PATCH /api/mobile/type-actions/pioneer/milestones/{milestone_id}`
+- `DELETE /api/mobile/type-actions/pioneer/milestones/{milestone_id}`
+
+생성 요청 예시:
+```json
+{
+  "country": "Canada",
+  "city": "Vancouver",
+  "category": "visa",
+  "title": "Collect visa documents",
+  "status": "todo",
+  "target_date": "2026-06-30",
+  "note": "check apostille requirements"
+}
+```
 
 ---
 

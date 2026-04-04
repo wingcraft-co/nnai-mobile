@@ -1,5 +1,5 @@
-import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, useWindowDimensions, View } from 'react-native';
@@ -12,8 +12,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { fetchPosts, toggleLike } from '@/api/posts';
+import { CharacterAvatar } from '@/components/character-avatar';
 import { ScreenShell } from '@/components/screen-shell';
-import { getLocalFeedImageByToken, getRandomFeedResourceImage } from '@/constants/feed-images';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
@@ -126,12 +126,19 @@ export default function FeedScreen() {
     <ScreenShell
       eyebrow="NNAI Nomad"
       invertEyebrow
+      showLogo
       title={t('오늘의 출근 도장', "Today's check-in")}
       subtitle={t('지금 이 순간, 전 세계 노마드들도 일하고 있어요', "You're not alone — everyone's just starting")}
       refreshControl={refreshControl}>
       <Pressable
-        className="self-start rounded-full border px-4 py-2"
-        style={{ backgroundColor: theme.backgroundSelected, borderColor: theme.border }}
+        style={{
+          alignSelf: 'flex-start',
+          borderWidth: 1,
+          borderColor: theme.border,
+          backgroundColor: theme.backgroundSelected,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        }}
         onPress={() => router.push('/compose')}>
         <ThemedText className="text-sm font-bold" style={{ color: theme.accent }}>
           {t('새 글 쓰기', 'Write a Post')}
@@ -213,13 +220,6 @@ function FlipPostCard({
     });
   };
 
-  const imageSource = useMemo(() => {
-    const local = getLocalFeedImageByToken(post.picture);
-    if (local) return local;
-    if (post.picture?.trim()) return { uri: post.picture };
-    return getRandomFeedResourceImage();
-  }, [post.picture]);
-
   return (
     <Pressable
       onPress={toggleFlip}
@@ -234,7 +234,7 @@ function FlipPostCard({
             left: 0,
             right: 0,
             bottom: 0,
-            borderRadius: 16,
+            borderRadius: 0,
             overflow: 'hidden',
             borderWidth: 1,
             borderColor: theme.border,
@@ -242,22 +242,13 @@ function FlipPostCard({
           },
           frontAnimatedStyle,
         ]}>
-        <Image source={imageSource} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-        <View
-          style={{
-            position: 'absolute',
-            left: 8,
-            right: 8,
-            bottom: 8,
-            backgroundColor: 'rgba(0,0,0,0.45)',
-            borderRadius: 10,
-            paddingHorizontal: 8,
-            paddingVertical: 6,
-          }}>
-          <ThemedText className="text-xs font-bold" style={{ color: '#fff' }} numberOfLines={1}>
-            {post.title}
-          </ThemedText>
-        </View>
+        {post.picture?.trim() ? (
+          <Image source={{ uri: post.picture }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+        ) : (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.backgroundSelected }}>
+            <CharacterAvatar type={post.author_nomad_type} size={80} />
+          </View>
+        )}
       </Animated.View>
 
       <Animated.View
@@ -269,40 +260,59 @@ function FlipPostCard({
             left: 0,
             right: 0,
             bottom: 0,
-            borderRadius: 16,
+            borderRadius: 0,
             overflow: 'hidden',
             borderWidth: 1,
             borderColor: theme.border,
             backgroundColor: theme.backgroundElement,
             padding: 10,
             gap: 6,
+            justifyContent: 'space-between',
           },
           backAnimatedStyle,
         ]}>
-        <ThemedText className="text-xs font-bold" numberOfLines={1}>
-          {post.title}
-        </ThemedText>
-        <ThemedText className="text-[11px] leading-4" style={{ color: theme.textSecondary }} numberOfLines={4}>
-          {post.body}
-        </ThemedText>
-        <View className="flex-row flex-wrap gap-1">
-          {post.tags.slice(0, 3).map((tag) => (
-            <View
-              key={tag}
-              className="rounded-full border px-2 py-0.5"
-              style={{ backgroundColor: theme.backgroundSelected, borderColor: theme.border }}>
-              <ThemedText className="text-[10px] font-bold">#{tag}</ThemedText>
-            </View>
-          ))}
-        </View>
-        <Pressable
-          className="self-start rounded-full border px-2 py-1"
-          style={{ backgroundColor: theme.backgroundSelected, borderColor: theme.border }}
-          onPress={() => void onLike(post.id)}>
-          <ThemedText className="text-[11px] font-bold" style={{ color: theme.accent }}>
-            {post.liked ? t('좋아요 취소', 'Liked') : t('좋아요', 'Like')} · {post.likes_count}
+        <View style={{ gap: 8 }}>
+          <ThemedText className="text-[10px] font-bold" style={{ color: theme.textSecondary }}>
+            {t('한 마디', 'One-liner')}
           </ThemedText>
-        </Pressable>
+          <View className="flex-row flex-wrap gap-1">
+            {(post.tags.length > 0 ? post.tags.slice(0, 1) : [t('일상', 'daily')]).map((tag) => (
+              <View
+                key={tag}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundSelected,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                }}>
+                <ThemedText className="text-xs font-bold">#{tag}</ThemedText>
+              </View>
+            ))}
+          </View>
+        </View>
+        <View className="flex-row items-center justify-between">
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: theme.border,
+              backgroundColor: theme.backgroundSelected,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+            }}>
+            <ThemedText className="text-[11px] font-bold" style={{ color: theme.textSecondary }}>
+              {t('좋아요', 'Likes')} {post.likes_count}
+            </ThemedText>
+          </View>
+          <Pressable
+            className="self-start rounded-full border px-2 py-1"
+            style={{ backgroundColor: theme.backgroundSelected, borderColor: theme.border }}
+            onPress={() => void onLike(post.id)}>
+            <ThemedText className="text-[11px] font-bold" style={{ color: theme.accent }}>
+              {post.liked ? t('좋아요 취소', 'Liked') : t('좋아요', 'Like')}
+            </ThemedText>
+          </Pressable>
+        </View>
       </Animated.View>
     </Pressable>
   );

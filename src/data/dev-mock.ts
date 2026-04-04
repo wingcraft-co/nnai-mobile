@@ -1,4 +1,17 @@
-import type { ChecklistItem, Circle, City, MovePlan, Post, Profile, User } from '@/types/api';
+import type {
+  ChecklistItem,
+  Circle,
+  City,
+  LocalEventRec,
+  MovePlan,
+  PlannerBoard,
+  PlannerTask,
+  PioneerMilestone,
+  Post,
+  Profile,
+  User,
+  WandererHop,
+} from '@/types/api';
 import { getAppLanguage } from '@/i18n';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -21,6 +34,7 @@ let posts: Post[] = [
     likes_count: 12,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
     liked: false,
+    author_nomad_type: 'planner',
   },
   {
     id: 2,
@@ -37,6 +51,7 @@ let posts: Post[] = [
     likes_count: 7,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
     liked: true,
+    author_nomad_type: 'planner',
   },
   {
     id: 3,
@@ -50,6 +65,7 @@ let posts: Post[] = [
     likes_count: 22,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
     liked: false,
+    author_nomad_type: 'free_spirit',
   },
   {
     id: 4,
@@ -63,6 +79,7 @@ let posts: Post[] = [
     likes_count: 9,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(),
     liked: false,
+    author_nomad_type: 'local',
   },
   {
     id: 5,
@@ -76,6 +93,7 @@ let posts: Post[] = [
     likes_count: 14,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
     liked: true,
+    author_nomad_type: 'planner',
   },
   {
     id: 6,
@@ -89,6 +107,7 @@ let posts: Post[] = [
     likes_count: 17,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
     liked: false,
+    author_nomad_type: 'pioneer',
   },
   {
     id: 7,
@@ -102,6 +121,7 @@ let posts: Post[] = [
     likes_count: 5,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 44).toISOString(),
     liked: false,
+    author_nomad_type: 'wanderer',
   },
   {
     id: 8,
@@ -115,6 +135,7 @@ let posts: Post[] = [
     likes_count: 11,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 52).toISOString(),
     liked: true,
+    author_nomad_type: 'local',
   },
   {
     id: 9,
@@ -128,6 +149,7 @@ let posts: Post[] = [
     likes_count: 19,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
     liked: false,
+    author_nomad_type: 'planner',
   },
   {
     id: 10,
@@ -141,6 +163,7 @@ let posts: Post[] = [
     likes_count: 8,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
     liked: false,
+    author_nomad_type: 'wanderer',
   },
 ];
 
@@ -249,6 +272,7 @@ const profile: Profile = {
   name: tx('개발 사용자', 'Dev User'),
   picture: '',
   email: 'dev@nnai.app',
+  nomad_type: 'planner',
   badges: [tx('얼리 노마드', 'Early Nomad'), tx('서클 호스트', 'Circle Host')],
   stats: {
     pins: 14,
@@ -262,7 +286,61 @@ const devUser: User = {
   name: tx('개발 사용자', 'Dev User'),
   picture: '',
   email: 'dev@nnai.app',
+  nomad_type: 'planner',
 };
+
+let plannerBoards: PlannerBoard[] = [
+  {
+    id: 1,
+    country: 'Portugal',
+    city: 'Lisbon',
+    title: tx('리스본 정착 체크리스트', 'Lisbon setup checklist'),
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+  },
+];
+
+let plannerTasks: PlannerTask[] = [
+  { id: 1, board_id: 1, text: tx('주거 후보 3곳 정리', 'List 3 housing candidates'), is_done: true, due_date: null, sort_order: 1 },
+  { id: 2, board_id: 1, text: tx('생활비 비교표 만들기', 'Build cost comparison sheet'), is_done: false, due_date: null, sort_order: 2 },
+];
+
+let wandererHops: WandererHop[] = [
+  { id: 1, from_country: 'Korea', to_country: 'Vietnam', to_city: 'Da Nang', note: null, target_month: '2026-08', status: 'planned' },
+  { id: 2, from_country: 'Vietnam', to_country: 'Taiwan', to_city: 'Taipei', note: null, target_month: '2026-10', status: 'booked' },
+];
+
+let localEventRecs: LocalEventRec[] = [
+  {
+    id: 1,
+    source: 'google_places',
+    source_event_id: 'g-1',
+    title: tx('홍대 재즈 나이트', 'Hongdae Jazz Night'),
+    venue_name: 'Riverside',
+    address: 'Seoul',
+    country: 'Korea',
+    city: 'Seoul',
+    starts_at: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+    ends_at: null,
+    lat: 37.55,
+    lng: 126.92,
+    radius_m: 5000,
+    status: 'saved',
+  },
+];
+
+let pioneerMilestones: PioneerMilestone[] = [
+  {
+    id: 1,
+    country: 'Canada',
+    city: 'Vancouver',
+    category: 'visa',
+    title: tx('비자 서류 준비', 'Prepare visa documents'),
+    status: 'todo',
+    target_date: null,
+    note: null,
+  },
+];
 
 function normalizeMethod(method?: string): HttpMethod {
   return (method?.toUpperCase() as HttpMethod) || 'GET';
@@ -304,6 +382,7 @@ export async function devMockApiRequest<T>(path: string, options: RequestInit = 
       likes_count: 0,
       created_at: new Date().toISOString(),
       liked: false,
+      author_nomad_type: devUser.nomad_type ?? 'wanderer',
     };
 
     posts = [created, ...posts];
@@ -380,6 +459,170 @@ export async function devMockApiRequest<T>(path: string, options: RequestInit = 
 
   if (method === 'GET' && pathname === '/api/mobile/profile') {
     return profile as T;
+  }
+
+  if (method === 'GET' && pathname === '/api/mobile/type-actions/planner/boards') {
+    return plannerBoards.map((board) => ({
+      ...board,
+      tasks: plannerTasks.filter((task) => task.board_id === board.id).sort((a, b) => a.sort_order - b.sort_order),
+    })) as T;
+  }
+
+  if (method === 'POST' && pathname === '/api/mobile/type-actions/planner/boards') {
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as {
+      country?: string;
+      city?: string | null;
+      title?: string;
+    };
+    const nextId = plannerBoards.length > 0 ? Math.max(...plannerBoards.map((x) => x.id)) + 1 : 1;
+    const now = new Date().toISOString();
+    const created: PlannerBoard = {
+      id: nextId,
+      country: body.country?.trim() || 'Unknown',
+      city: body.city?.trim() || null,
+      title: body.title?.trim() || tx('새 보드', 'New Board'),
+      created_at: now,
+      updated_at: now,
+    };
+    plannerBoards = [created, ...plannerBoards];
+    return created as T;
+  }
+
+  if (method === 'POST' && /^\/api\/mobile\/type-actions\/planner\/boards\/\d+\/tasks$/.test(pathname)) {
+    const boardId = Number(pathname.split('/')[6]);
+    const board = plannerBoards.find((x) => x.id === boardId);
+    if (!board) throw new Error(`Mock planner board not found: ${boardId}`);
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as {
+      text?: string;
+      due_date?: string | null;
+      sort_order?: number;
+    };
+    const nextId = plannerTasks.length > 0 ? Math.max(...plannerTasks.map((x) => x.id)) + 1 : 1;
+    const created: PlannerTask = {
+      id: nextId,
+      board_id: boardId,
+      text: body.text?.trim() || tx('새 태스크', 'New task'),
+      is_done: false,
+      due_date: body.due_date ?? null,
+      sort_order: body.sort_order ?? plannerTasks.filter((x) => x.board_id === boardId).length + 1,
+    };
+    plannerTasks = [...plannerTasks, created];
+    plannerBoards = plannerBoards.map((x) => (x.id === boardId ? { ...x, updated_at: new Date().toISOString() } : x));
+    return created as T;
+  }
+
+  if (method === 'PATCH' && /^\/api\/mobile\/type-actions\/planner\/tasks\/\d+$/.test(pathname)) {
+    const taskId = Number(pathname.split('/')[6]);
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as {
+      is_done?: boolean;
+      text?: string;
+      due_date?: string | null;
+    };
+    let updated: PlannerTask | null = null;
+    plannerTasks = plannerTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      updated = {
+        ...task,
+        is_done: body.is_done ?? task.is_done,
+        text: body.text?.trim() || task.text,
+        due_date: body.due_date ?? task.due_date,
+      };
+      return updated;
+    });
+    if (!updated) throw new Error(`Mock planner task not found: ${taskId}`);
+    plannerBoards = plannerBoards.map((x) =>
+      x.id === updated!.board_id ? { ...x, updated_at: new Date().toISOString() } : x,
+    );
+    return updated as T;
+  }
+
+  if (method === 'POST' && pathname === '/api/mobile/type-actions/free-spirit/spins') {
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as {
+      lat?: number;
+      lng?: number;
+      keyword?: string;
+    };
+    const candidates = [
+      { place_id: 'g-11', name: 'Cafe Layered', address: 'Seoul', rating: 4.5, lat: body.lat ?? 37.5, lng: body.lng ?? 126.9 },
+      { place_id: 'g-12', name: 'Blue Bottle', address: 'Seoul', rating: 4.4, lat: body.lat ?? 37.5, lng: body.lng ?? 126.9 },
+      { place_id: 'g-13', name: 'Anthracite', address: 'Seoul', rating: 4.6, lat: body.lat ?? 37.5, lng: body.lng ?? 126.9 },
+    ];
+    const selected = candidates[Math.floor(Math.random() * candidates.length)];
+    return {
+      spin_id: Date.now(),
+      selected,
+      candidates_count: candidates.length,
+      keyword: body.keyword ?? 'cafe',
+    } as T;
+  }
+
+  if (method === 'GET' && pathname === '/api/mobile/type-actions/wanderer/hops') {
+    return wandererHops as T;
+  }
+
+  if (method === 'PATCH' && /^\/api\/mobile\/type-actions\/wanderer\/hops\/\d+$/.test(pathname)) {
+    const hopId = Number(pathname.split('/')[6]);
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as Partial<WandererHop>;
+    let updated: WandererHop | null = null;
+    wandererHops = wandererHops.map((hop) => {
+      if (hop.id !== hopId) return hop;
+      updated = { ...hop, ...body };
+      return updated;
+    });
+    if (!updated) throw new Error(`Mock hop not found: ${hopId}`);
+    return updated as T;
+  }
+
+  if (method === 'GET' && pathname === '/api/mobile/type-actions/local/events/saved') {
+    return localEventRecs as T;
+  }
+
+  if (method === 'POST' && pathname === '/api/mobile/type-actions/local/events/save') {
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as LocalEventRec;
+    const existing = localEventRecs.find((x) => x.source === body.source && x.source_event_id === body.source_event_id);
+    if (existing) {
+      existing.status = 'saved';
+      return { id: existing.id, status: existing.status } as T;
+    }
+    const nextId = localEventRecs.length > 0 ? Math.max(...localEventRecs.map((x) => x.id)) + 1 : 1;
+    localEventRecs = [
+      ...localEventRecs,
+      {
+        ...body,
+        id: nextId,
+        status: 'saved',
+      },
+    ];
+    return { id: nextId, status: 'saved' } as T;
+  }
+
+  if (method === 'PATCH' && /^\/api\/mobile\/type-actions\/local\/events\/\d+$/.test(pathname)) {
+    const eventId = Number(pathname.split('/')[6]);
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as { status?: LocalEventRec['status'] };
+    localEventRecs = localEventRecs.map((event) => {
+      if (event.id !== eventId) return event;
+      return { ...event, status: body.status ?? event.status };
+    });
+    const updated = localEventRecs.find((event) => event.id === eventId);
+    if (!updated) throw new Error(`Mock local event not found: ${eventId}`);
+    return { id: updated.id, status: updated.status } as T;
+  }
+
+  if (method === 'GET' && pathname === '/api/mobile/type-actions/pioneer/milestones') {
+    return pioneerMilestones as T;
+  }
+
+  if (method === 'PATCH' && /^\/api\/mobile\/type-actions\/pioneer\/milestones\/\d+$/.test(pathname)) {
+    const milestoneId = Number(pathname.split('/')[6]);
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as Partial<PioneerMilestone>;
+    let updated: PioneerMilestone | null = null;
+    pioneerMilestones = pioneerMilestones.map((item) => {
+      if (item.id !== milestoneId) return item;
+      updated = { ...item, ...body };
+      return updated;
+    });
+    if (!updated) throw new Error(`Mock milestone not found: ${milestoneId}`);
+    return updated as T;
   }
 
   throw new Error(`Mock API route not implemented: ${method} ${pathname}`);

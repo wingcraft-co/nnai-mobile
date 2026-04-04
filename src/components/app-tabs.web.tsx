@@ -28,8 +28,11 @@ export default function AppTabs() {
           <TabTrigger name="home" href="/" asChild>
             <TabButton>{t('홈', 'Home')}</TabButton>
           </TabTrigger>
-          <TabTrigger name="explore" href="/(tabs)/discover" asChild>
-            <TabButton>{t('탐색', 'Explore')}</TabButton>
+          <TabTrigger name="city" href="./city" asChild>
+            <TabButton>{t('도시', 'City')}</TabButton>
+          </TabTrigger>
+          <TabTrigger name="me" href="./me" asChild>
+            <TabButton>{t('나', 'Me')}</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
