@@ -396,23 +396,30 @@ export default function MeScreen() {
               </ThemedText>
               <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
                 {candidateHops.map((hop) => (
-                  <Pressable
+                  <View
                     key={hop.id}
-                    onPress={() => void onSetFocus(hop.id)}
                     style={{
                       borderWidth: 1,
                       borderColor: theme.border,
                       paddingHorizontal: 10,
                       paddingVertical: 6,
                       opacity: 0.7,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
                     }}>
-                    <ThemedText style={{ fontSize: 12, fontWeight: '700' }}>
-                      {hop.to_city ?? hop.to_country}
-                    </ThemedText>
-                    <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>
-                      {hop.status}
-                    </ThemedText>
-                  </Pressable>
+                    <Pressable onPress={() => void onSetFocus(hop.id)} style={{ flex: 1 }}>
+                      <ThemedText style={{ fontSize: 12, fontWeight: '700' }}>
+                        {hop.to_city ?? hop.to_country}
+                      </ThemedText>
+                      <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>
+                        {hop.status}
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable onPress={() => void onDeleteHop(hop.id)}>
+                      <ThemedText style={{ fontSize: 11, color: theme.destructive }}>✕</ThemedText>
+                    </Pressable>
+                  </View>
                 ))}
               </View>
             </View>
