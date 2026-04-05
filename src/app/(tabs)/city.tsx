@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, TextInput, View } from 'react-native';
 
 import { createCityStay, fetchCityStays, leaveCityStay, patchCityStay } from '@/api/cities';
+import { GamePanel, ProgressMeter, StatTile } from '@/components/game-ui';
 import { ScreenShell } from '@/components/screen-shell';
 import { ThemedText } from '@/components/themed-text';
+import { searchCities, searchCitiesLocal } from '@/data/nomad-cities';
+import type { NomadCity } from '@/data/nomad-cities';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import type { CityStay } from '@/types/api';
@@ -44,6 +47,13 @@ export default function CityScreen() {
   const [newVisaExpiresAt, setNewVisaExpiresAt] = useState('');
   const [newBudgetRemaining, setNewBudgetRemaining] = useState('');
 
+  // 퍼지 검색
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityResults, setCityResults] = useState<NomadCity[]>([]);
+  const [citySearching, setCitySearching] = useState(false);
+  const [selectedNewCity, setSelectedNewCity] = useState<NomadCity | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // 지나온 도시 접기
   const [pastExpanded, setPastExpanded] = useState(false);
 
@@ -72,6 +82,7 @@ export default function CityScreen() {
     );
     return diff;
   }, [currentStay, today]);
+  const readinessDone = Number((visaDaysLeft ?? 0) > 7) + Number((currentStay?.budget_remaining ?? 0) > 0) + Number((daysStayed ?? 0) >= 2);
 
   const loadStays = useCallback(async () => {
     const data = await fetchCityStays();
@@ -163,6 +174,9 @@ export default function CityScreen() {
       });
       setStays((prev) => [...prev, created]);
       setAddingNew(false);
+      setSelectedNewCity(null);
+      setCityQuery('');
+      setCityResults([]);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('저장 실패', 'Save failed'));
     } finally {
@@ -196,24 +210,37 @@ export default function CityScreen() {
     backgroundColor: theme.backgroundSelected,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderRadius: 999,
   };
 
   return (
     <ScreenShell
-      eyebrow={t('도시', 'City')}
-      title={t('현재 체류', 'Current Stay')}
-      subtitle={t('지금 머무는 도시와 비자, 예산을 관리하세요.', 'Track your current city, visa, and budget.')}
+      eyebrow={t('도시 운영', 'City Ops')}
+      title={t('도시 운영 콘솔', 'City Operation Console')}
+      subtitle={t('비자/예산/체류일을 관리하고 이동 이벤트 턴을 준비하세요.', 'Manage visa, budget, and stay days to prep your migration event turn.')}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}>
+      <GamePanel title={t('이동 이벤트 준비도', 'Migration Readiness')} subtitle={t('비자/예산/체류 조건을 맞추면 이동 턴이 열립니다.', 'Hit visa, budget, and stay conditions to unlock migration turn.')}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <StatTile label={t('현재', 'Current')} value={currentStay?.city ?? t('미정', 'Unset')} />
+          <StatTile
+            label={t('비자', 'Visa')}
+            value={visaDaysLeft != null ? `D-${visaDaysLeft}` : '—'}
+            tone={visaDaysLeft != null && visaDaysLeft <= 7 ? 'danger' : 'default'}
+          />
+          <StatTile label={t('체류', 'Days')} value={String(daysStayed ?? '—')} />
+        </View>
+        <ProgressMeter label={t('턴 준비', 'Turn Ready')} value={readinessDone} max={3} />
+      </GamePanel>
 
       {error ? (
-        <View style={card}>
+        <View style={{ ...card, borderRadius: 16 }}>
           <ThemedText style={{ fontSize: 13, color: theme.destructive }}>{error}</ThemedText>
         </View>
       ) : null}
 
       {/* 현재 도시 없고 추가 모드 아닐 때 */}
       {!loading && !currentStay && !addingNew ? (
-        <View style={card}>
+        <View style={{ ...card, borderRadius: 16 }}>
           <ThemedText style={{ fontSize: 13, color: theme.textSecondary }}>
             {t('현재 도시가 없습니다.', 'No current city set.')}
           </ThemedText>
@@ -227,24 +254,105 @@ export default function CityScreen() {
 
       {/* 새 도시 추가 폼 */}
       {addingNew ? (
-        <View style={card}>
+        <View style={{ ...card, borderRadius: 16 }}>
           <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>
             {t('새 도시 입력', 'New City')}
           </ThemedText>
-          <TextInput
-            value={newCity}
-            onChangeText={setNewCity}
-            placeholder={t('도시명 (예: Bangkok)', 'City (e.g. Bangkok)')}
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
-          />
-          <TextInput
-            value={newCountry}
-            onChangeText={setNewCountry}
-            placeholder={t('국가 (예: Thailand)', 'Country (e.g. Thailand)')}
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
-          />
+          {selectedNewCity ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ flex: 1, borderWidth: 1, borderColor: theme.accent, padding: 10 }}>
+                <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>
+                  {selectedNewCity.flag} {selectedNewCity.nameEn}, {selectedNewCity.countryEn}
+                </ThemedText>
+                <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+                  {selectedNewCity.name}, {selectedNewCity.country}
+                </ThemedText>
+              </View>
+              <Pressable onPress={() => {
+                setSelectedNewCity(null);
+                setNewCity('');
+                setNewCountry('');
+                setCityQuery('');
+                setCityResults([]);
+              }}>
+                <ThemedText style={{ fontSize: 13, color: theme.destructive }}>✕</ThemedText>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <TextInput
+                value={cityQuery}
+                onChangeText={(text) => {
+                  setCityQuery(text);
+                  setCityResults(searchCitiesLocal(text));
+                  if (debounceRef.current) clearTimeout(debounceRef.current);
+                  if (text.trim().length > 0) {
+                    setCitySearching(true);
+                    debounceRef.current = setTimeout(() => {
+                      void searchCities(text).then((results) => {
+                        setCityResults(results);
+                        setCitySearching(false);
+                      });
+                    }, 300);
+                  } else {
+                    setCitySearching(false);
+                  }
+                }}
+                placeholder={t('도시 검색 (예: bangkok, 방콕)', 'Search city (e.g. bangkok)')}
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle}
+                autoFocus
+              />
+              {cityResults.length > 0 ? (
+                <View style={{ borderWidth: 1, borderColor: theme.border, maxHeight: 200 }}>
+                  {cityResults.slice(0, 8).map((city) => (
+                    <Pressable
+                      key={`${city.nameEn}-${city.countryEn}`}
+                      onPress={() => {
+                        setSelectedNewCity(city);
+                        setNewCity(city.nameEn);
+                        setNewCountry(city.countryEn);
+                        setCityQuery('');
+                        setCityResults([]);
+                      }}
+                      style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                      <ThemedText style={{ fontSize: 13 }}>
+                        {city.flag} {city.nameEn} · {city.name}
+                      </ThemedText>
+                      <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+                        {city.countryEn} · {city.country}
+                      </ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : cityQuery.length > 0 && !citySearching ? (
+                <ThemedText style={{ fontSize: 11, color: theme.textSecondary, paddingVertical: 4 }}>
+                  {t('검색 결과가 없습니다. 직접 입력하세요.', 'No results. Enter manually.')}
+                </ThemedText>
+              ) : null}
+              {citySearching ? (
+                <ActivityIndicator size="small" color={theme.accent} style={{ paddingVertical: 4 }} />
+              ) : null}
+              {cityQuery.length > 0 && cityResults.length === 0 && !citySearching ? (
+                <>
+                  <TextInput
+                    value={newCity}
+                    onChangeText={setNewCity}
+                    placeholder={t('도시명', 'City name')}
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle}
+                  />
+                  <TextInput
+                    value={newCountry}
+                    onChangeText={setNewCountry}
+                    placeholder={t('국가명', 'Country name')}
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle}
+                  />
+                </>
+              ) : null}
+            </>
+          )}
           <TextInput
             value={newArrivedAt}
             onChangeText={setNewArrivedAt}
@@ -273,7 +381,14 @@ export default function CityScreen() {
                 {saving ? t('저장 중...', 'Saving...') : t('저장', 'Save')}
               </ThemedText>
             </Pressable>
-            <Pressable onPress={() => setAddingNew(false)} style={{ ...btnStyle, borderColor: theme.border }}>
+            <Pressable onPress={() => {
+              setAddingNew(false);
+              setSelectedNewCity(null);
+              setCityQuery('');
+              setCityResults([]);
+              setNewCity('');
+              setNewCountry('');
+            }} style={{ ...btnStyle, borderColor: theme.border }}>
               <ThemedText style={{ fontSize: 12, fontWeight: '700', color: theme.textSecondary }}>
                 {t('취소', 'Cancel')}
               </ThemedText>
@@ -284,7 +399,7 @@ export default function CityScreen() {
 
       {/* 현재 도시 카드 */}
       {currentStay && !addingNew ? (
-        <View style={card}>
+        <View style={{ ...card, borderRadius: 16 }}>
           {editing ? (
             <>
               <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>

@@ -13,6 +13,7 @@ import Animated, {
 
 import { fetchPosts, toggleLike } from '@/api/posts';
 import { CharacterAvatar } from '@/components/character-avatar';
+import { GamePanel, PixelButton, ProgressMeter, StatTile } from '@/components/game-ui';
 import { ScreenShell } from '@/components/screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
@@ -70,6 +71,13 @@ export default function FeedScreen() {
     () => <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />,
     [onRefresh, refreshing, theme.accent],
   );
+  const questTotal = 3;
+  const questDone = Math.min(
+    questTotal,
+    Number(posts.length > 0) + Number(posts.some((post) => post.liked)) + Number(posts.some((post) => post.tags.length > 0)),
+  );
+  const energy = Math.max(0, 100 - questDone * 22);
+  const xp = Math.min(100, 20 + questDone * 27);
 
   const onLike = useCallback(async (postId: number) => {
     setPosts((prev) =>
@@ -124,26 +132,21 @@ export default function FeedScreen() {
 
   return (
     <ScreenShell
-      eyebrow="NNAI Nomad"
+      eyebrow={t('오늘의 턴', 'Today Turn')}
       invertEyebrow
       showLogo
-      title={t('오늘의 출근 도장', "Today's check-in")}
-      subtitle={t('지금 이 순간, 전 세계 노마드들도 일하고 있어요', "You're not alone — everyone's just starting")}
+      title={t('노마드 라이프 시뮬', 'Nomad Life Sim')}
+      subtitle={t('하루 1턴을 진행하며 도시/관계/성장을 동시에 관리하세요.', 'Play one turn a day and balance city, social, and growth.')}
       refreshControl={refreshControl}>
-      <Pressable
-        style={{
-          alignSelf: 'flex-start',
-          borderWidth: 1,
-          borderColor: theme.border,
-          backgroundColor: theme.backgroundSelected,
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-        }}
-        onPress={() => router.push('/compose')}>
-        <ThemedText className="text-sm font-bold" style={{ color: theme.accent }}>
-          {t('새 글 쓰기', 'Write a Post')}
-        </ThemedText>
-      </Pressable>
+      <TurnBoard
+        theme={theme}
+        t={t}
+        energy={energy}
+        xp={xp}
+        questDone={questDone}
+        questTotal={questTotal}
+      />
+      <PixelButton label={t('턴 이벤트 작성', 'Create Turn Event')} onPress={() => router.push('/compose')} />
 
       {error ? (
         <View className="rounded-2xl border p-4" style={{ backgroundColor: theme.backgroundElement, borderColor: theme.border }}>
@@ -163,6 +166,11 @@ export default function FeedScreen() {
 
       {pages.map((page, pageIndex) => (
         <View key={`page-${pageIndex}`} className="gap-2">
+          {pageIndex === 0 ? (
+            <ThemedText className="text-xs font-bold" style={{ color: theme.textSecondary, letterSpacing: 1 }}>
+              {t('오늘의 상황 카드', 'TODAY SITUATION CARDS')}
+            </ThemedText>
+          ) : null}
           <View className="flex-row flex-wrap justify-between">
             {page.map((post) => (
               <FlipPostCard
@@ -196,6 +204,8 @@ function FlipPostCard({
 }) {
   const flip = useSharedValue(0);
   const [flipped, setFlipped] = useState(false);
+  const authorId = post.user_id;
+  const authorLevel = getPostAuthorLevel(post);
 
   const frontAnimatedStyle = useAnimatedStyle(() => {
     const rotateY = interpolate(flip.value, [0, 1], [0, 180]);
@@ -234,7 +244,7 @@ function FlipPostCard({
             left: 0,
             right: 0,
             bottom: 0,
-            borderRadius: 0,
+            borderRadius: 18,
             overflow: 'hidden',
             borderWidth: 1,
             borderColor: theme.border,
@@ -242,6 +252,36 @@ function FlipPostCard({
           },
           frontAnimatedStyle,
         ]}>
+        <ThemedText
+          className="text-[10px] font-bold"
+          style={{
+            position: 'absolute',
+            bottom: 8,
+            left: 8,
+            zIndex: 20,
+            color: '#ffffff',
+          }}>
+          ID:{authorId}
+        </ThemedText>
+        <View
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 20,
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            borderWidth: 2,
+            borderColor: theme.accent,
+            backgroundColor: '#ffffff',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <ThemedText className="text-[10px] font-bold" style={{ color: theme.accent }}>
+            LV.{authorLevel}
+          </ThemedText>
+        </View>
         {post.picture?.trim() ? (
           <Image source={{ uri: post.picture }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
         ) : (
@@ -260,7 +300,7 @@ function FlipPostCard({
             left: 0,
             right: 0,
             bottom: 0,
-            borderRadius: 0,
+            borderRadius: 18,
             overflow: 'hidden',
             borderWidth: 1,
             borderColor: theme.border,
@@ -315,6 +355,58 @@ function FlipPostCard({
         </View>
       </Animated.View>
     </Pressable>
+  );
+}
+
+function getPostAuthorLevel(post: Post): number {
+  if (typeof post.author_level === 'number' && Number.isFinite(post.author_level)) {
+    return Math.max(1, Math.floor(post.author_level));
+  }
+  // Fallback until backend sends author_level: deterministic pseudo level from user_id.
+  const seed = post.user_id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  return (seed % 25) + 1;
+}
+
+function TurnBoard({
+  theme,
+  t,
+  energy,
+  xp,
+  questDone,
+  questTotal,
+}: {
+  theme: ReturnType<typeof useTheme>;
+  t: (ko: string, en: string) => string;
+  energy: number;
+  xp: number;
+  questDone: number;
+  questTotal: number;
+}) {
+  const quests = [
+    t('체크인 1회', '1 Check-in'),
+    t('좋아요 또는 댓글 1회', '1 Like or Comment'),
+    t('내일 이동 후보 검토', 'Review Next Destination'),
+  ];
+
+  return (
+    <GamePanel title={t('턴 대시보드', 'Turn Dashboard')} subtitle={t('하루 1턴을 완료하면 다음 이벤트가 열립니다.', 'Complete one daily turn to unlock your next event.')}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <StatTile label={t('에너지', 'ENERGY')} value={`${energy}%`} />
+        <StatTile label={t('성장치', 'XP')} value={`${xp}%`} tone="accent" />
+        <StatTile label={t('완료', 'DONE')} value={`${questDone}/${questTotal}`} />
+      </View>
+      <ProgressMeter label={t('오늘의 퀘스트', 'Today Quests')} value={questDone} max={questTotal} />
+      <View style={{ gap: 6 }}>
+        {quests.map((quest, idx) => (
+          <ThemedText
+            key={quest}
+            className="text-xs font-bold"
+            style={{ color: idx < questDone ? theme.accent : theme.textSecondary }}>
+            {idx < questDone ? '✓ ' : '○ '} {quest}
+          </ThemedText>
+        ))}
+      </View>
+    </GamePanel>
   );
 }
 

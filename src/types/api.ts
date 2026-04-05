@@ -11,6 +11,7 @@ export type User = {
 export type Post = {
   id: number;
   user_id: string;
+  author_level?: number;
   author: string;
   picture: string;
   title: string;

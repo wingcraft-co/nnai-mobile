@@ -3,7 +3,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -30,7 +30,9 @@ export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [oauthStarting, setOauthStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const oauthInFlightRef = useRef(false);
   const isExpoGo = Constants.appOwnership === 'expo';
   const hasClientIds = Boolean(GOOGLE_CLIENT_ID_IOS && GOOGLE_CLIENT_ID_ANDROID);
 
@@ -52,8 +54,16 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!response) return;
+    oauthInFlightRef.current = false;
+    setOauthStarting(false);
     if (response.type === 'error') {
-      setError(`${t('구글 OAuth 오류', 'Google OAuth error')}: ${response.error?.message ?? JSON.stringify(response.params)}`);
+      const errorCode = response.error?.code ?? 'unknown_error';
+      const errorMessage = response.error?.message ?? 'No message';
+      const paramsDump = response.params ? JSON.stringify(response.params) : '{}';
+      console.error('Google OAuth error response', response);
+      setError(
+        `${t('구글 OAuth 오류', 'Google OAuth error')}: [${errorCode}] ${errorMessage} | params=${paramsDump}`,
+      );
       return;
     }
     if (response.type === 'dismiss' || response.type === 'cancel') {
@@ -116,6 +126,9 @@ export default function LoginScreen() {
           className="w-full rounded-2xl p-4 items-center"
           style={{ backgroundColor: theme.accent }}
           onPress={() => {
+            if (oauthInFlightRef.current || oauthStarting || loading) {
+              return;
+            }
             if (isExpoGo) {
               setError(
                 t(
@@ -134,10 +147,16 @@ export default function LoginScreen() {
               );
               return;
             }
-            void promptAsync();
+            setError(null);
+            oauthInFlightRef.current = true;
+            setOauthStarting(true);
+            void promptAsync().catch(() => {
+              oauthInFlightRef.current = false;
+              setOauthStarting(false);
+            });
           }}
-          disabled={loading}>
-          {loading ? (
+          disabled={loading || oauthStarting}>
+          {loading || oauthStarting ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <ThemedText className="text-base font-bold" style={{ color: '#fff' }}>
@@ -145,7 +164,7 @@ export default function LoginScreen() {
             </ThemedText>
           )}
         </Pressable>
-        {__DEV__ ? (
+        {__DEV__ && DEV_MOCK_API_ENABLED ? (
           <Pressable
             className="w-full rounded-2xl p-4 items-center border"
             style={{ backgroundColor: theme.backgroundElement, borderColor: theme.border }}
