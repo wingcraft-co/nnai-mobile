@@ -25,7 +25,7 @@ export function FloatingCompanion({ context }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const nomadType = state.status === 'authenticated' ? state.user.nomad_type : null;
+  const personaType = state.status === 'authenticated' ? state.user.persona_type : null;
 
   const scale = useSharedValue(1);
   const bubbleOpacity = useSharedValue(0);
@@ -69,20 +69,20 @@ export function FloatingCompanion({ context }: Props) {
     showBubble(context);
   }, [context, showBubble]);
 
-  if (!nomadType) return null;
+  if (!personaType) return null;
 
   return (
     <View
       style={{
         position: 'absolute',
         right: 16,
-        bottom: BottomTabInset + 16,
+        bottom: BottomTabInset + 34,
         alignItems: 'flex-end',
         zIndex: 100,
       }}
       pointerEvents="box-none">
-      <Animated.View style={[{ marginBottom: 4 }, animatedBubbleStyle]}>
-        {message ? <SpeechBubble message={message} /> : null}
+      <Animated.View style={[{ marginBottom: 1 }, animatedBubbleStyle]}>
+        {message ? <SpeechBubble message={message} tailAlign="right" /> : null}
       </Animated.View>
 
       <Pressable onPress={onPress}>
@@ -97,7 +97,7 @@ export function FloatingCompanion({ context }: Props) {
             },
             animatedCharStyle,
           ]}>
-          <CharacterAvatar type={nomadType} size={48} animated />
+          <CharacterAvatar type={personaType} size={48} animated />
         </Animated.View>
       </Pressable>
     </View>

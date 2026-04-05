@@ -4,6 +4,18 @@ import { fetchMe } from '@/api/auth';
 import { clearToken, getToken } from '@/api/client';
 import type { User } from '@/types/api';
 
+const AUTH_BOOT_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_AUTH_BOOT_TIMEOUT_MS || 8000);
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error('AUTH_BOOT_TIMEOUT')), ms);
+    promise
+      .then((value) => resolve(value))
+      .catch((error) => reject(error))
+      .finally(() => clearTimeout(id));
+  });
+}
+
 type AuthState =
   | { status: 'loading' }
   | { status: 'unauthenticated' }
@@ -42,7 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     async function hydrateAuth() {
-      const token = await getToken();
+      let token: string | null = null;
+      try {
+        token = await withTimeout(getToken(), AUTH_BOOT_TIMEOUT_MS);
+      } catch {
+        token = null;
+      }
       if (!mounted) {
         return;
       }
@@ -53,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const user = await fetchMe();
+        const user = await withTimeout(fetchMe(), AUTH_BOOT_TIMEOUT_MS);
         if (!mounted) {
           return;
         }

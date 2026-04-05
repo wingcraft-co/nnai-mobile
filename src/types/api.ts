@@ -1,11 +1,16 @@
-export type NomadType = 'free_spirit' | 'local' | 'pioneer' | 'planner' | 'wanderer';
+export type PersonaType =
+  | 'wanderer'
+  | 'local'
+  | 'planner'
+  | 'free_spirit'
+  | 'pioneer';
 
 export type User = {
   uid: string;
   name: string;
   picture: string;
-  email?: string;
-  nomad_type: NomadType | null;
+  email: string;
+  persona_type: PersonaType | null;
 };
 
 export type Post = {
@@ -21,7 +26,7 @@ export type Post = {
   likes_count: number;
   created_at: string;
   liked: boolean;
-  author_nomad_type: NomadType;
+  author_persona_type: PersonaType | null;
 };
 
 export type Comment = {
@@ -86,7 +91,7 @@ export type Profile = {
   name: string;
   picture: string;
   email: string;
-  nomad_type: NomadType | null;
+  persona_type: PersonaType | null;
   badges: string[];
   stats: {
     pins: number;

@@ -133,10 +133,9 @@ export default function FeedScreen() {
   return (
     <ScreenShell
       eyebrow={t('오늘의 턴', 'Today Turn')}
-      invertEyebrow
-      showLogo
       title={t('노마드 라이프 시뮬', 'Nomad Life Sim')}
       subtitle={t('하루 1턴을 진행하며 도시/관계/성장을 동시에 관리하세요.', 'Play one turn a day and balance city, social, and growth.')}
+      hideHero
       refreshControl={refreshControl}>
       <TurnBoard
         theme={theme}
@@ -286,7 +285,7 @@ function FlipPostCard({
           <Image source={{ uri: post.picture }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.backgroundSelected }}>
-            <CharacterAvatar type={post.author_nomad_type} size={80} />
+            <CharacterAvatar type={post.author_persona_type ?? 'local'} size={80} />
           </View>
         )}
       </Animated.View>

@@ -44,7 +44,7 @@ function RootLayoutNav() {
     return <LoadingScreen />;
   }
 
-  if (state.status === 'authenticated' && state.user.nomad_type === null) {
+  if (state.status === 'authenticated' && state.user.persona_type === null) {
     return <TypeGate />;
   }
 
