@@ -7,6 +7,7 @@ import type {
   PlannerTask,
   PioneerMilestone,
   WandererHop,
+  WandererHopCondition,
 } from '@/types/api';
 
 export const fetchPlannerBoards = (): Promise<PlannerBoard[]> =>
@@ -56,14 +57,32 @@ export const spinFreeSpirit = (data: {
 export const fetchWandererHops = (): Promise<WandererHop[]> =>
   apiRequest('/api/mobile/type-actions/wanderer/hops');
 
+export const createWandererHop = (data: {
+  to_country: string;
+  to_city?: string | null;
+  from_country?: string | null;
+  target_month?: string | null;
+  note?: string | null;
+  status?: 'planned' | 'booked';
+  conditions?: WandererHopCondition[];
+  is_focus?: boolean;
+}): Promise<WandererHop> =>
+  apiRequest('/api/mobile/type-actions/wanderer/hops', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
 export const patchWandererHop = (
   hopId: number,
-  data: Partial<Pick<WandererHop, 'status' | 'to_country' | 'to_city' | 'target_month' | 'note'>>,
+  data: Partial<Pick<WandererHop, 'status' | 'to_country' | 'to_city' | 'target_month' | 'note' | 'conditions' | 'is_focus'>>,
 ): Promise<WandererHop> =>
   apiRequest(`/api/mobile/type-actions/wanderer/hops/${hopId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
+
+export const deleteWandererHop = (hopId: number): Promise<void> =>
+  apiRequest(`/api/mobile/type-actions/wanderer/hops/${hopId}`, { method: 'DELETE' });
 
 export const fetchLocalEventsSaved = (): Promise<LocalEventRec[]> =>
   apiRequest('/api/mobile/type-actions/local/events/saved');

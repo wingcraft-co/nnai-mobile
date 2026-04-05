@@ -1,10 +1,54 @@
-import { apiRequest } from './client';
-import { getToken } from './client';
+import { apiRequest, getToken } from './client';
 
 import type { Comment, Post } from '@/types/api';
 
-export const fetchPosts = (page = 0): Promise<Post[]> =>
-  apiRequest(`/api/mobile/posts?limit=20&offset=${page * 20}`);
+const API_BASE = (process.env.EXPO_PUBLIC_API_BASE || 'https://api.nnai.app').replace(/\/+$/, '');
+
+type RawPost = Post & {
+  image_url?: string | null;
+  post_image_url?: string | null;
+  postImageUrl?: string | null;
+  photo_url?: string | null;
+  photoUrl?: string | null;
+};
+
+function toAbsoluteMediaUrl(value?: string | null): string {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) {
+    return '';
+  }
+  if (/^(https?:|file:|data:|content:)/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  if (trimmed.startsWith('/')) {
+    return `${API_BASE}${trimmed}`;
+  }
+  return `${API_BASE}/${trimmed.replace(/^\/+/, '')}`;
+}
+
+function normalizePost(raw: RawPost): Post {
+  const picture = toAbsoluteMediaUrl(
+    raw.image_url ??
+      raw.post_image_url ??
+      raw.postImageUrl ??
+      raw.photo_url ??
+      raw.photoUrl ??
+      raw.picture,
+  );
+
+  return {
+    ...raw,
+    picture,
+  };
+}
+
+export const fetchPosts = async (page = 0): Promise<Post[]> => {
+  const rows = await apiRequest<RawPost[]>(`/api/mobile/posts?limit=20&offset=${page * 20}`);
+  return rows.map(normalizePost);
+};
 
 export const createPost = (data: {
   title: string;
@@ -13,10 +57,17 @@ export const createPost = (data: {
   city: string | null;
   picture?: string;
 }): Promise<Post> =>
-  apiRequest('/api/mobile/posts', { method: 'POST', body: JSON.stringify(data) });
+  apiRequest<RawPost>('/api/mobile/posts', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...data,
+      image_url: data.picture ?? undefined,
+      post_image_url: data.picture ?? undefined,
+      picture: data.picture ?? undefined,
+    }),
+  }).then(normalizePost);
 
 export async function uploadPostImage(localUri: string): Promise<string> {
-  const API_BASE = (process.env.EXPO_PUBLIC_API_BASE || 'https://api.nnai.app').replace(/\/+$/, '');
   const UPLOAD_PATH = process.env.EXPO_PUBLIC_POST_IMAGE_UPLOAD_PATH || '/api/mobile/uploads/image';
   const token = await getToken();
   const devMockApiEnabled = process.env.EXPO_PUBLIC_DEV_MOCK_API === 'true';

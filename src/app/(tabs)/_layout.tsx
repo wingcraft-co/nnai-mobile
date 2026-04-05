@@ -12,7 +12,11 @@ export default function TabsLayout() {
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
   const { t } = useI18n();
   const pathname = usePathname();
-
+  const tabIndicator = useMemo(() => {
+    if (pathname.includes('city')) return t('도시 운영', 'City Ops');
+    if (pathname.includes('me')) return t('캐릭터', 'Character');
+    return t('오늘의 턴', 'Today Turn');
+  }, [pathname, t]);
   const companionContext: CompanionContext = useMemo(() => {
     if (pathname.includes('city')) return 'city';
     if (pathname.includes('me')) return 'me';
@@ -21,6 +25,19 @@ export default function TabsLayout() {
 
   return (
     <View style={{ flex: 1 }}>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: 8,
+          paddingBottom: 6,
+          backgroundColor: colors.background,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        }}>
+        <Text style={{ color: colors.textSecondary, fontSize: 11, letterSpacing: 1.2, fontWeight: '700' }}>
+          {tabIndicator.toUpperCase()}
+        </Text>
+      </View>
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -30,35 +47,35 @@ export default function TabsLayout() {
             backgroundColor: colors.backgroundElement,
             borderTopColor: colors.border,
             borderTopWidth: 1,
-            height: 84,
-            paddingBottom: 10,
-            paddingTop: 8,
+            height: 86,
+            paddingBottom: 8,
+            paddingTop: 10,
           },
           tabBarLabelStyle: {
             fontSize: 12,
             fontWeight: '700',
-            fontFamily: 'monospace',
+            letterSpacing: 0.5,
           },
         }}>
         <Tabs.Screen
           name="index"
           options={{
-            title: t('피드', 'Feed'),
-            tabBarIcon: ({ color }) => <TabIcon label="F" color={color} />,
+            title: t('턴', 'Turn'),
+            tabBarIcon: ({ color }) => <TabIcon label="T" color={color} />,
           }}
         />
         <Tabs.Screen
           name="city"
           options={{
-            title: t('국가', 'Countries'),
+            title: t('도시', 'City'),
             tabBarIcon: ({ color }) => <TabIcon label="C" color={color} />,
           }}
         />
         <Tabs.Screen
           name="me"
           options={{
-            title: t('나', 'Me'),
-            tabBarIcon: ({ color }) => <TabIcon label="M" color={color} />,
+            title: t('캐릭터', 'Character'),
+            tabBarIcon: ({ color }) => <TabIcon label="R" color={color} />,
           }}
         />
       </Tabs>
@@ -71,14 +88,16 @@ function TabIcon({ label, color }: { label: string; color: string }) {
   return (
     <View
       style={{
-        width: 28,
-        height: 28,
+        width: 30,
+        height: 30,
         borderWidth: 1,
         borderColor: color,
+        borderRadius: 15,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'transparent',
       }}>
-      <Text style={{ color, fontSize: 14, fontFamily: 'monospace', fontWeight: '700' }}>{label}</Text>
+      <Text style={{ color, fontSize: 13, fontWeight: '800' }}>{label}</Text>
     </View>
   );
 }

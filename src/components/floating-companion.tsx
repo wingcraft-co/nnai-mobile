@@ -93,6 +93,7 @@ export function FloatingCompanion({ context }: Props) {
               height: 56,
               alignItems: 'center',
               justifyContent: 'center',
+              backgroundColor: 'transparent',
             },
             animatedCharStyle,
           ]}>

@@ -139,6 +139,8 @@ Content-Type: application/json
 | `readiness_stage` | string | ❌ | `""` | 준비 단계 (예: `"구체적으로 준비 중"`) |
 | `has_spouse_income` | string | ❌ | `"없음"` | 배우자 소득 여부 |
 | `spouse_income_krw` | integer | ❌ | `0` | 배우자 월 소득 (만원) |
+| `stay_style` | string \| null | ❌ | `null` | 체류 형태 (예: `"코리빙/쉐어하우스"`) |
+| `tax_sensitivity` | string \| null | ❌ | `null` | 세금 민감도 (예: `"세금 최소화 중요"`) |
 
 **요청 예시:**
 ```json
@@ -153,7 +155,9 @@ Content-Type: application/json
   "preferred_language": "한국어",
   "income_type": "프리랜서",
   "travel_type": "혼자 (솔로)",
-  "readiness_stage": "구체적으로 준비 중"
+  "readiness_stage": "구체적으로 준비 중",
+  "stay_style": "코리빙/쉐어하우스",
+  "tax_sensitivity": "세금 최소화 중요"
 }
 ```
 

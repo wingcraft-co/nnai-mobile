@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, TextInput, View } from 'react-native';
 
 import {
   createPlannerBoard,
   createPlannerTask,
+  createWandererHop,
+  deleteWandererHop,
   fetchLocalEventsSaved,
   fetchPioneerMilestones,
   fetchPlannerBoards,
@@ -15,15 +17,20 @@ import {
   saveLocalEvent,
   spinFreeSpirit,
 } from '@/api/type-actions';
+import { fetchCityStays } from '@/api/cities';
 import { fetchProfile } from '@/api/profile';
 import { CharacterAvatar } from '@/components/character-avatar';
+import { GamePanel, ProgressMeter, StatTile } from '@/components/game-ui';
 import { ScreenShell } from '@/components/screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { NomadTypes } from '@/constants/nomad-types';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
+import { searchCities, searchCitiesLocal } from '@/data/nomad-cities';
+import type { NomadCity } from '@/data/nomad-cities';
 import { useAuth } from '@/store/auth-store';
 import type {
+  CityStay,
   LocalEventRec,
   NomadType,
   PlannerBoard,
@@ -31,6 +38,7 @@ import type {
   PioneerMilestone,
   Profile,
   WandererHop,
+  WandererHopCondition,
 } from '@/types/api';
 
 export default function MeScreen() {
@@ -48,6 +56,15 @@ export default function MeScreen() {
   const [plannerInput, setPlannerInput] = useState('');
   const [spinResult, setSpinResult] = useState<string | null>(null);
   const [wandererHops, setWandererHops] = useState<WandererHop[]>([]);
+  const [currentStay, setCurrentStay] = useState<CityStay | null>(null);
+  const [addingHop, setAddingHop] = useState(false);
+  const [newHopCity, setNewHopCity] = useState('');
+  const [newHopCountry, setNewHopCountry] = useState('');
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityResults, setCityResults] = useState<NomadCity[]>([]);
+  const [citySearching, setCitySearching] = useState(false);
+  const [selectedCity, setSelectedCity] = useState<NomadCity | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [localEvents, setLocalEvents] = useState<LocalEventRec[]>([]);
   const [pioneerMilestones, setPioneerMilestones] = useState<PioneerMilestone[]>([]);
 
@@ -56,6 +73,15 @@ export default function MeScreen() {
   const typeLabel = typeConfig ? (isKorean ? typeConfig.labelKr : typeConfig.label) : '';
   const plannerDoneCount = useMemo(() => plannerTasks.filter((x) => x.is_done).length, [plannerTasks]);
   const localSavedCount = useMemo(() => localEvents.filter((x) => x.status !== 'recommended').length, [localEvents]);
+  const characterLevel = useMemo(() => {
+    const base = profile?.id ?? 1;
+    return 1 + ((base + plannerDoneCount + localSavedCount) % 7);
+  }, [localSavedCount, plannerDoneCount, profile?.id]);
+  const streakDays = useMemo(() => 3 + ((plannerDoneCount + localSavedCount) % 5), [localSavedCount, plannerDoneCount]);
+  const growthDone = useMemo(
+    () => Number(plannerDoneCount > 0) + Number(localSavedCount > 0) + Number(streakDays >= 5),
+    [localSavedCount, plannerDoneCount, streakDays],
+  );
 
   const loadData = useCallback(async () => {
     const profileData = await fetchProfile();
@@ -72,7 +98,12 @@ export default function MeScreen() {
     }
 
     if (currentType === 'wanderer') {
-      setWandererHops(await fetchWandererHops());
+      const [hops, stays] = await Promise.all([
+        fetchWandererHops(),
+        fetchCityStays(),
+      ]);
+      setWandererHops(hops);
+      setCurrentStay(stays.find((s) => s.left_at === null) ?? null);
       return;
     }
 
@@ -220,29 +251,320 @@ export default function MeScreen() {
     }
 
     if (nomadType === 'wanderer') {
+      const focusHop = wandererHops.find((h) => h.is_focus) ?? wandererHops[0] ?? null;
+      const candidateHops = wandererHops.filter((h) => h !== focusHop);
+
+      // 자동 조건 계산
+      const visaAutoOk = focusHop
+        ? ['Vietnam', 'Taiwan', 'Japan', 'Thailand', 'Portugal', 'Germany', 'France', 'Spain'].includes(focusHop.to_country)
+        : false;
+      const budgetAutoOk = currentStay?.budget_remaining != null && currentStay.budget_remaining > 0;
+
+      const autoConditions = focusHop
+        ? [
+            { id: '__visa__', label: t('비자 무비자 확인', 'Visa-free check'), is_done: visaAutoOk },
+            { id: '__budget__', label: t('예산 충분', 'Budget sufficient'), is_done: budgetAutoOk },
+          ]
+        : [];
+
+      const allConditions = focusHop
+        ? [...autoConditions, ...focusHop.conditions]
+        : [];
+      const fulfilledCount = allConditions.filter((c) => c.is_done).length;
+      const totalCount = allConditions.length;
+      const progressPct = totalCount > 0 ? Math.round((fulfilledCount / totalCount) * 100) : 0;
+
+      const onToggleCondition = async (conditionId: string) => {
+        if (!focusHop) return;
+        const updated = focusHop.conditions.map((c) =>
+          c.id === conditionId ? { ...c, is_done: !c.is_done } : c,
+        );
+        try {
+          const result = await patchWandererHop(focusHop.id, { conditions: updated });
+          setWandererHops((prev) => prev.map((h) => (h.id === result.id ? result : h)));
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : t('업데이트 실패', 'Failed to update.'));
+        }
+      };
+
+      const onSetFocus = async (hopId: number) => {
+        try {
+          const updates = await Promise.all(
+            wandererHops.map((h) =>
+              patchWandererHop(h.id, { is_focus: h.id === hopId }),
+            ),
+          );
+          setWandererHops(updates);
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : t('업데이트 실패', 'Failed to update.'));
+        }
+      };
+
+      const onAddHop = async () => {
+        if (!newHopCity.trim() || !newHopCountry.trim()) return;
+        try {
+          const created = await createWandererHop({
+            to_city: newHopCity.trim(),
+            to_country: newHopCountry.trim(),
+            status: 'planned',
+            conditions: [],
+            is_focus: wandererHops.length === 0,
+          });
+          setWandererHops((prev) => [...prev, created]);
+          setNewHopCity('');
+          setNewHopCountry('');
+          setAddingHop(false);
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : t('추가 실패', 'Failed to add hop.'));
+        }
+      };
+
+      const onDeleteHop = async (hopId: number) => {
+        try {
+          await deleteWandererHop(hopId);
+          setWandererHops((prev) => prev.filter((h) => h.id !== hopId));
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : t('삭제 실패', 'Failed to delete hop.'));
+        }
+      };
+
       return (
         <View style={cardStyle(theme)}>
-          <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>{t('다음 이동 계획', 'Next Hops')}</ThemedText>
-          {wandererHops.map((hop) => (
-            <Pressable
-              key={hop.id}
-              onPress={() =>
-                void (async () => {
-                  const nextStatus: WandererHop['status'] =
-                    hop.status === 'planned' ? 'booked' : hop.status === 'booked' ? 'visited' : 'planned';
-                  try {
-                    const updated = await patchWandererHop(hop.id, { status: nextStatus });
-                    setWandererHops((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
-                  } catch (e: unknown) {
-                    setError(e instanceof Error ? e.message : t('업데이트 실패', 'Failed to update.'));
-                  }
-                })()
-              }
-              style={{ borderWidth: 1, borderColor: theme.border, padding: 10, gap: 4 }}>
-              <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>{hop.to_city ?? hop.to_country}</ThemedText>
-              <ThemedText style={{ fontSize: 12, color: theme.accent }}>{hop.status.toUpperCase()}</ThemedText>
+          {/* 포커스 행선지 */}
+          {focusHop ? (
+            <>
+              <ThemedText style={{ fontSize: 13, fontWeight: '700', color: theme.accent, letterSpacing: 1 }}>
+                {t('다음 행선지', 'NEXT DESTINATION')}
+              </ThemedText>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {/* 원형 프로그레스 */}
+                <View style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  borderWidth: 3,
+                  borderColor: progressPct === 100 ? theme.accent : theme.border,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <ThemedText style={{ fontSize: 14, fontWeight: '700', color: progressPct === 100 ? theme.accent : theme.text }}>
+                    {progressPct}%
+                  </ThemedText>
+                </View>
+
+                <View style={{ flex: 1, gap: 2 }}>
+                  <ThemedText style={{ fontSize: 16, fontWeight: '700' }}>
+                    {focusHop.to_city ? `${focusHop.to_city}, ` : ''}{focusHop.to_country}
+                  </ThemedText>
+                  <ThemedText style={{ fontSize: 11, color: theme.accent }}>
+                    {focusHop.status.toUpperCase()}{focusHop.target_month ? ` · ${focusHop.target_month}` : ''}
+                  </ThemedText>
+                  <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+                    {t('조건', 'Conditions')} {fulfilledCount}/{totalCount}
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* 조건 태그 */}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {autoConditions.map((c) => (
+                  <View
+                    key={c.id}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: c.is_done ? theme.accent : theme.border,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    }}>
+                    <ThemedText style={{ fontSize: 11, fontWeight: '700', color: c.is_done ? theme.accent : theme.textSecondary }}>
+                      {c.is_done ? '✓ ' : '✗ '}{c.label}
+                    </ThemedText>
+                  </View>
+                ))}
+                {focusHop.conditions.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => void onToggleCondition(c.id)}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: c.is_done ? theme.accent : theme.border,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    }}>
+                    <ThemedText style={{ fontSize: 11, fontWeight: '700', color: c.is_done ? theme.accent : theme.textSecondary }}>
+                      {c.is_done ? '✓ ' : '○ '}{c.label}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : (
+            <ThemedText style={{ fontSize: 13, color: theme.textSecondary }}>
+              {t('행선지 후보가 없습니다.', 'No destination set yet.')}
+            </ThemedText>
+          )}
+
+          {/* 후보 도시 */}
+          {candidateHops.length > 0 ? (
+            <View style={{ gap: 6 }}>
+              <ThemedText style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '700' }}>
+                {t('후보', 'CANDIDATES')}
+              </ThemedText>
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                {candidateHops.map((hop) => (
+                  <View
+                    key={hop.id}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      opacity: 0.7,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}>
+                    <Pressable onPress={() => void onSetFocus(hop.id)} style={{ flex: 1 }}>
+                      <ThemedText style={{ fontSize: 12, fontWeight: '700' }}>
+                        {hop.to_city ?? hop.to_country}
+                      </ThemedText>
+                      <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>
+                        {hop.status}
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable onPress={() => void onDeleteHop(hop.id)}>
+                      <ThemedText style={{ fontSize: 11, color: theme.destructive }}>✕</ThemedText>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* 새 행선지 추가 */}
+          {addingHop ? (
+            <View style={{ gap: 8 }}>
+              {selectedCity ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ flex: 1, borderWidth: 1, borderColor: theme.accent, padding: 10 }}>
+                    <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>
+                      {selectedCity.flag} {selectedCity.nameEn}, {selectedCity.countryEn}
+                    </ThemedText>
+                    <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+                      {selectedCity.name}, {selectedCity.country}
+                    </ThemedText>
+                  </View>
+                  <Pressable onPress={() => {
+                    setSelectedCity(null);
+                    setNewHopCity('');
+                    setNewHopCountry('');
+                    setCityQuery('');
+                    setCityResults([]);
+                  }}>
+                    <ThemedText style={{ fontSize: 13, color: theme.destructive }}>✕</ThemedText>
+                  </Pressable>
+                </View>
+              ) : (
+                <>
+                  <TextInput
+                    value={cityQuery}
+                    onChangeText={(text) => {
+                      setCityQuery(text);
+                      // 로컬 즉시 결과
+                      setCityResults(searchCitiesLocal(text));
+                      // API 디바운스
+                      if (debounceRef.current) clearTimeout(debounceRef.current);
+                      if (text.trim().length > 0) {
+                        setCitySearching(true);
+                        debounceRef.current = setTimeout(() => {
+                          void searchCities(text).then((results) => {
+                            setCityResults(results);
+                            setCitySearching(false);
+                          });
+                        }, 300);
+                      } else {
+                        setCitySearching(false);
+                      }
+                    }}
+                    placeholder={t('도시 검색 (예: bangkok, 방콕)', 'Search city (e.g. bangkok)')}
+                    placeholderTextColor={theme.textSecondary}
+                    style={inputStyle(theme)}
+                    autoFocus
+                  />
+                  {cityResults.length > 0 ? (
+                    <View style={{ borderWidth: 1, borderColor: theme.border, maxHeight: 200 }}>
+                      {cityResults.slice(0, 8).map((city) => (
+                        <Pressable
+                          key={`${city.nameEn}-${city.countryEn}`}
+                          onPress={() => {
+                            setSelectedCity(city);
+                            setNewHopCity(city.nameEn);
+                            setNewHopCountry(city.countryEn);
+                            setCityQuery('');
+                            setCityResults([]);
+                          }}
+                          style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                          <ThemedText style={{ fontSize: 13 }}>
+                            {city.flag} {city.nameEn} · {city.name}
+                          </ThemedText>
+                          <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+                            {city.countryEn} · {city.country}
+                          </ThemedText>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : cityQuery.length > 0 && !citySearching ? (
+                    <ThemedText style={{ fontSize: 11, color: theme.textSecondary, paddingVertical: 4 }}>
+                      {t('검색 결과가 없습니다. 직접 입력하세요.', 'No results. Enter manually.')}
+                    </ThemedText>
+                  ) : null}
+                  {citySearching ? (
+                    <ActivityIndicator size="small" color={theme.accent} style={{ paddingVertical: 4 }} />
+                  ) : null}
+                  {cityQuery.length > 0 && cityResults.length === 0 && !citySearching ? (
+                    <View style={{ gap: 8 }}>
+                      <TextInput
+                        value={newHopCity}
+                        onChangeText={setNewHopCity}
+                        placeholder={t('도시명', 'City name')}
+                        placeholderTextColor={theme.textSecondary}
+                        style={inputStyle(theme)}
+                      />
+                      <TextInput
+                        value={newHopCountry}
+                        onChangeText={setNewHopCountry}
+                        placeholder={t('국가명', 'Country name')}
+                        placeholderTextColor={theme.textSecondary}
+                        style={inputStyle(theme)}
+                      />
+                    </View>
+                  ) : null}
+                </>
+              )}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable onPress={() => void onAddHop()} style={buttonStyle(theme)}>
+                  <ThemedText style={buttonTextStyle(theme)}>{t('추가', 'Add')}</ThemedText>
+                </Pressable>
+                <Pressable onPress={() => {
+                  setAddingHop(false);
+                  setSelectedCity(null);
+                  setCityQuery('');
+                  setCityResults([]);
+                  setNewHopCity('');
+                  setNewHopCountry('');
+                }} style={{ ...buttonStyle(theme), borderColor: theme.border }}>
+                  <ThemedText style={{ ...buttonTextStyle(theme), color: theme.textSecondary }}>{t('취소', 'Cancel')}</ThemedText>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable onPress={() => setAddingHop(true)} style={buttonStyle(theme)}>
+              <ThemedText style={buttonTextStyle(theme)}>
+                {t('+ 행선지 추가', '+ Add Destination')}
+              </ThemedText>
             </Pressable>
-          ))}
+          )}
         </View>
       );
     }
@@ -336,18 +658,27 @@ export default function MeScreen() {
 
   return (
     <ScreenShell
-      eyebrow={t('나', 'Me')}
-      title={typeLabel || t('프로필', 'Profile')}
-      subtitle={t('타입별 액션을 API 구조로 연결한 mock 모드입니다.', 'Type actions are now wired to API-shaped mock flows.')}
+      eyebrow={t('캐릭터', 'Character')}
+      title={typeLabel || t('캐릭터 허브', 'Character Hub')}
+      subtitle={t('오늘 턴 진행에 맞춰 캐릭터 성장/특성 액션을 운영하세요.', 'Run growth and trait actions aligned with your daily turns.')}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}>
+      <GamePanel title={t('캐릭터 루프 상태', 'Character Loop Status')} subtitle={t('오늘 행동이 레벨과 타입 성장으로 연결됩니다.', 'Your daily actions feed level and type progression.')}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <StatTile label={t('레벨', 'Level')} value={`Lv.${characterLevel}`} tone="accent" />
+          <StatTile label={t('연속 턴', 'Streak')} value={`${streakDays}${t('일', 'd')}`} />
+          <StatTile label={t('유형', 'Type')} value={typeLabel || '-'} />
+        </View>
+        <ProgressMeter label={t('성장 체크포인트', 'Growth Checkpoints')} value={growthDone} max={3} />
+      </GamePanel>
+
       {error ? (
-        <View style={cardStyle(theme)}>
+        <View style={{ ...cardStyle(theme), borderRadius: 16 }}>
           <ThemedText style={{ fontSize: 13, color: theme.destructive }}>{error}</ThemedText>
         </View>
       ) : null}
 
       {profile ? (
-        <View style={{ ...cardStyle(theme), alignItems: 'center', gap: 8 }}>
+        <View style={{ ...cardStyle(theme), borderRadius: 16, alignItems: 'center', gap: 8 }}>
           <CharacterAvatar type={nomadType} size={120} />
           <ThemedText style={{ fontSize: 16, fontWeight: '700', color: typeConfig?.color ?? theme.accent }}>
             {typeLabel}
@@ -377,6 +708,7 @@ function cardStyle(theme: ReturnType<typeof useTheme>) {
     borderWidth: 1,
     borderColor: theme.border,
     padding: 16,
+    borderRadius: 14,
     gap: 10,
   } as const;
 }
@@ -388,6 +720,7 @@ function inputStyle(theme: ReturnType<typeof useTheme>) {
     backgroundColor: theme.background,
     paddingHorizontal: 10,
     paddingVertical: 8,
+    borderRadius: 12,
     color: theme.text,
     fontSize: 13,
     fontFamily: 'monospace',
@@ -400,8 +733,9 @@ function buttonStyle(theme: ReturnType<typeof useTheme>) {
     borderWidth: 1,
     borderColor: theme.accent,
     backgroundColor: theme.backgroundSelected,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   } as const;
 }
 

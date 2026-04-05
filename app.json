@@ -19,6 +19,7 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
+              "nnainomad",
               "com.googleusercontent.apps.962318799283-7tsqbo64f14h6hfvgrn8b4fbgp43o6s5"
             ]
           }
