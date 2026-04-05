@@ -2,6 +2,7 @@ import type {
   ChecklistItem,
   Circle,
   City,
+  CityStay,
   LocalEventRec,
   MovePlan,
   PlannerBoard,
@@ -306,8 +307,81 @@ let plannerTasks: PlannerTask[] = [
 ];
 
 let wandererHops: WandererHop[] = [
-  { id: 1, from_country: 'Korea', to_country: 'Vietnam', to_city: 'Da Nang', note: null, target_month: '2026-08', status: 'planned' },
-  { id: 2, from_country: 'Vietnam', to_country: 'Taiwan', to_city: 'Taipei', note: null, target_month: '2026-10', status: 'booked' },
+  {
+    id: 1,
+    from_country: 'Thailand',
+    to_country: 'Vietnam',
+    to_city: 'Da Nang',
+    note: null,
+    target_month: '2026-05',
+    status: 'booked',
+    conditions: [
+      { id: 'flight', label: tx('항공권 예매', 'Book flight'), is_done: true },
+      { id: 'accommodation', label: tx('숙소 확보', 'Book accommodation'), is_done: false },
+    ],
+    is_focus: true,
+  },
+  {
+    id: 2,
+    from_country: 'Vietnam',
+    to_country: 'Taiwan',
+    to_city: 'Taipei',
+    note: null,
+    target_month: '2026-07',
+    status: 'planned',
+    conditions: [],
+    is_focus: false,
+  },
+  {
+    id: 3,
+    from_country: 'Taiwan',
+    to_country: 'Japan',
+    to_city: 'Tokyo',
+    note: null,
+    target_month: '2026-09',
+    status: 'planned',
+    conditions: [],
+    is_focus: false,
+  },
+];
+
+let cityStays: CityStay[] = [
+  {
+    id: 1,
+    city: 'Bangkok',
+    country: 'Thailand',
+    arrived_at: '2025-02-01',
+    left_at: null,
+    visa_expires_at: '2026-04-19',
+    budget_total: 1200,
+    budget_remaining: 840,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 63).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    city: 'Lisbon',
+    country: 'Portugal',
+    arrived_at: '2024-11-01',
+    left_at: '2025-01-20',
+    visa_expires_at: null,
+    budget_total: null,
+    budget_remaining: null,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 155).toISOString(),
+    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 75).toISOString(),
+  },
+  {
+    id: 3,
+    city: 'Chiang Mai',
+    country: 'Thailand',
+    arrived_at: '2024-08-15',
+    left_at: '2024-10-30',
+    visa_expires_at: null,
+    budget_total: null,
+    budget_remaining: null,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 233).toISOString(),
+    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 158).toISOString(),
+  },
 ];
 
 let localEventRecs: LocalEventRec[] = [
@@ -560,6 +634,30 @@ export async function devMockApiRequest<T>(path: string, options: RequestInit = 
     return wandererHops as T;
   }
 
+  if (method === 'POST' && pathname === '/api/mobile/type-actions/wanderer/hops') {
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as Partial<WandererHop>;
+    const nextId = wandererHops.length > 0 ? Math.max(...wandererHops.map((x) => x.id)) + 1 : 1;
+    const created: WandererHop = {
+      id: nextId,
+      from_country: body.from_country ?? null,
+      to_country: body.to_country?.trim() || '',
+      to_city: body.to_city?.trim() || null,
+      note: body.note ?? null,
+      target_month: body.target_month ?? null,
+      status: body.status ?? 'planned',
+      conditions: body.conditions ?? [],
+      is_focus: body.is_focus ?? false,
+    };
+    wandererHops = [...wandererHops, created];
+    return created as T;
+  }
+
+  if (method === 'DELETE' && /^\/api\/mobile\/type-actions\/wanderer\/hops\/\d+$/.test(pathname)) {
+    const hopId = Number(pathname.split('/')[6]);
+    wandererHops = wandererHops.filter((hop) => hop.id !== hopId);
+    return undefined as T;
+  }
+
   if (method === 'PATCH' && /^\/api\/mobile\/type-actions\/wanderer\/hops\/\d+$/.test(pathname)) {
     const hopId = Number(pathname.split('/')[6]);
     const body = JSON.parse((options.body as string | undefined) ?? '{}') as Partial<WandererHop>;
@@ -606,6 +704,62 @@ export async function devMockApiRequest<T>(path: string, options: RequestInit = 
     const updated = localEventRecs.find((event) => event.id === eventId);
     if (!updated) throw new Error(`Mock local event not found: ${eventId}`);
     return { id: updated.id, status: updated.status } as T;
+  }
+
+  if (method === 'GET' && pathname === '/api/mobile/city-stays') {
+    return cityStays as T;
+  }
+
+  if (method === 'POST' && pathname === '/api/mobile/city-stays') {
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as {
+      city?: string;
+      country?: string | null;
+      arrived_at?: string;
+      visa_expires_at?: string | null;
+      budget_total?: number | null;
+      budget_remaining?: number | null;
+    };
+    const now = new Date().toISOString();
+    const nextId = cityStays.length > 0 ? Math.max(...cityStays.map((x) => x.id)) + 1 : 1;
+    const created: CityStay = {
+      id: nextId,
+      city: body.city?.trim() || '',
+      country: body.country?.trim() || null,
+      arrived_at: body.arrived_at || new Date().toISOString().slice(0, 10),
+      left_at: null,
+      visa_expires_at: body.visa_expires_at || null,
+      budget_total: body.budget_total ?? null,
+      budget_remaining: body.budget_remaining ?? null,
+      created_at: now,
+      updated_at: now,
+    };
+    cityStays = [...cityStays, created];
+    return created as T;
+  }
+
+  if (method === 'PATCH' && /^\/api\/mobile\/city-stays\/\d+$/.test(pathname)) {
+    const stayId = Number(pathname.split('/')[4]);
+    const body = JSON.parse((options.body as string | undefined) ?? '{}') as Partial<CityStay>;
+    let updated: CityStay | null = null;
+    cityStays = cityStays.map((stay) => {
+      if (stay.id !== stayId) return stay;
+      updated = { ...stay, ...body, updated_at: new Date().toISOString() };
+      return updated;
+    });
+    if (!updated) throw new Error(`Mock city stay not found: ${stayId}`);
+    return updated as T;
+  }
+
+  if (method === 'POST' && /^\/api\/mobile\/city-stays\/\d+\/leave$/.test(pathname)) {
+    const stayId = Number(pathname.split('/')[4]);
+    let updated: CityStay | null = null;
+    cityStays = cityStays.map((stay) => {
+      if (stay.id !== stayId) return stay;
+      updated = { ...stay, left_at: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString() };
+      return updated;
+    });
+    if (!updated) throw new Error(`Mock city stay not found: ${stayId}`);
+    return updated as T;
   }
 
   if (method === 'GET' && pathname === '/api/mobile/type-actions/pioneer/milestones') {
