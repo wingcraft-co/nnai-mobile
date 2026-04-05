@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, TextInput, View, useWindowDimensions } from 'react-native';
 
 import {
   createPlannerBoard,
@@ -17,34 +17,38 @@ import {
   saveLocalEvent,
   spinFreeSpirit,
 } from '@/api/type-actions';
-import { fetchCityStays } from '@/api/cities';
+import { fetchCities, fetchCityStays } from '@/api/cities';
 import { fetchProfile } from '@/api/profile';
 import { CharacterAvatar } from '@/components/character-avatar';
 import { GamePanel, ProgressMeter, StatTile } from '@/components/game-ui';
 import { ScreenShell } from '@/components/screen-shell';
+import { SpeechBubble } from '@/components/speech-bubble';
 import { ThemedText } from '@/components/themed-text';
-import { NomadTypes } from '@/constants/nomad-types';
+import { getPersonaTypeConfig } from '@/constants/persona-types';
+import { buildPersonaChatterLines, isSleepingByLocalTime } from '@/features/persona-companion';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import { searchCities, searchCitiesLocal } from '@/data/nomad-cities';
 import type { NomadCity } from '@/data/nomad-cities';
 import { useAuth } from '@/store/auth-store';
 import type {
+  City,
   CityStay,
   LocalEventRec,
-  NomadType,
+  PersonaType,
   PlannerBoard,
   PlannerTask,
   PioneerMilestone,
   Profile,
   WandererHop,
-  WandererHopCondition,
 } from '@/types/api';
 
 export default function MeScreen() {
   const theme = useTheme();
   const { t, isKorean } = useI18n();
   const { state, logout } = useAuth();
+  const { height } = useWindowDimensions();
+  const sectionHeight = Math.max(220, Math.round(height * 0.3));
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +60,7 @@ export default function MeScreen() {
   const [plannerInput, setPlannerInput] = useState('');
   const [spinResult, setSpinResult] = useState<string | null>(null);
   const [wandererHops, setWandererHops] = useState<WandererHop[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
   const [currentStay, setCurrentStay] = useState<CityStay | null>(null);
   const [addingHop, setAddingHop] = useState(false);
   const [newHopCity, setNewHopCity] = useState('');
@@ -67,27 +72,49 @@ export default function MeScreen() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [localEvents, setLocalEvents] = useState<LocalEventRec[]>([]);
   const [pioneerMilestones, setPioneerMilestones] = useState<PioneerMilestone[]>([]);
+  const [, setClockTick] = useState(0);
+  const [chatterIndex, setChatterIndex] = useState(0);
 
-  const nomadType: NomadType | null = state.status === 'authenticated' ? state.user.nomad_type : null;
-  const typeConfig = nomadType ? NomadTypes[nomadType] : null;
+  const personaType: PersonaType | null = state.status === 'authenticated' ? state.user.persona_type : null;
+  const typeConfig = getPersonaTypeConfig(personaType);
+  const actionType = typeConfig?.actionType ?? null;
   const typeLabel = typeConfig ? (isKorean ? typeConfig.labelKr : typeConfig.label) : '';
   const plannerDoneCount = useMemo(() => plannerTasks.filter((x) => x.is_done).length, [plannerTasks]);
   const localSavedCount = useMemo(() => localEvents.filter((x) => x.status !== 'recommended').length, [localEvents]);
   const characterLevel = useMemo(() => {
-    const base = profile?.id ?? 1;
+    const base = profile?.uid.length ?? 1;
     return 1 + ((base + plannerDoneCount + localSavedCount) % 7);
-  }, [localSavedCount, plannerDoneCount, profile?.id]);
+  }, [localSavedCount, plannerDoneCount, profile?.uid]);
   const streakDays = useMemo(() => 3 + ((plannerDoneCount + localSavedCount) % 5), [localSavedCount, plannerDoneCount]);
   const growthDone = useMemo(
     () => Number(plannerDoneCount > 0) + Number(localSavedCount > 0) + Number(streakDays >= 5),
     [localSavedCount, plannerDoneCount, streakDays],
   );
+  const matchedCity = useMemo(
+    () =>
+      currentStay
+        ? cities.find((city) => city.city.toLowerCase() === currentStay.city.toLowerCase()) ?? null
+        : null,
+    [cities, currentStay],
+  );
+  const chatterLines = useMemo(
+    () => buildPersonaChatterLines({ isKorean, stay: currentStay, matchedCity }),
+    [currentStay, isKorean, matchedCity],
+  );
+  const chatter = chatterLines[chatterIndex % Math.max(1, chatterLines.length)] ?? '';
+  const isSleeping = isSleepingByLocalTime(new Date());
+  const companionBackdrop = isSleeping
+    ? { background: '#1a2133', border: '#3a4d7a', overlay: '#7f97d9' }
+    : { background: '#fff6dd', border: '#d9b46b', overlay: '#ffdd8f' };
 
   const loadData = useCallback(async () => {
     const profileData = await fetchProfile();
     setProfile(profileData);
+    const [stays, citiesData] = await Promise.all([fetchCityStays(), fetchCities()]);
+    setCurrentStay(stays.find((s) => s.left_at === null) ?? null);
+    setCities(citiesData);
 
-    const currentType = nomadType ?? profileData.nomad_type;
+    const currentType = actionType ?? getPersonaTypeConfig(profileData.persona_type)?.actionType ?? null;
 
     if (currentType === 'planner') {
       const boards = await fetchPlannerBoards();
@@ -98,12 +125,8 @@ export default function MeScreen() {
     }
 
     if (currentType === 'wanderer') {
-      const [hops, stays] = await Promise.all([
-        fetchWandererHops(),
-        fetchCityStays(),
-      ]);
+      const hops = await fetchWandererHops();
       setWandererHops(hops);
-      setCurrentStay(stays.find((s) => s.left_at === null) ?? null);
       return;
     }
 
@@ -116,7 +139,20 @@ export default function MeScreen() {
       setPioneerMilestones(await fetchPioneerMilestones());
       return;
     }
-  }, [nomadType]);
+  }, [actionType]);
+
+  useEffect(() => {
+    const chatterTimer = setInterval(() => {
+      setChatterIndex((prev) => prev + 1);
+    }, 30000);
+    const clockTimer = setInterval(() => {
+      setClockTick((prev) => prev + 1);
+    }, 60000);
+    return () => {
+      clearInterval(chatterTimer);
+      clearInterval(clockTimer);
+    };
+  }, []);
 
   useEffect(() => {
     loadData()
@@ -152,7 +188,7 @@ export default function MeScreen() {
   }, [plannerBoards, t]);
 
   const renderTypeAction = () => {
-    if (!nomadType) {
+    if (!actionType) {
       return (
         <View style={cardStyle(theme)}>
           <ThemedText style={{ fontSize: 13, color: theme.textSecondary }}>
@@ -162,7 +198,7 @@ export default function MeScreen() {
       );
     }
 
-    if (nomadType === 'planner') {
+    if (actionType === 'planner') {
       return (
         <View style={cardStyle(theme)}>
           <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>
@@ -225,7 +261,7 @@ export default function MeScreen() {
       );
     }
 
-    if (nomadType === 'free_spirit') {
+    if (actionType === 'free_spirit') {
       return (
         <View style={cardStyle(theme)}>
           <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>{t('오늘의 카페 돌림판', "Today's Cafe Spinner")}</ThemedText>
@@ -250,7 +286,7 @@ export default function MeScreen() {
       );
     }
 
-    if (nomadType === 'wanderer') {
+    if (actionType === 'wanderer') {
       const focusHop = wandererHops.find((h) => h.is_focus) ?? wandererHops[0] ?? null;
       const candidateHops = wandererHops.filter((h) => h !== focusHop);
 
@@ -569,7 +605,7 @@ export default function MeScreen() {
       );
     }
 
-    if (nomadType === 'local') {
+    if (actionType === 'local') {
       return (
         <View style={cardStyle(theme)}>
           <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>
@@ -661,7 +697,63 @@ export default function MeScreen() {
       eyebrow={t('캐릭터', 'Character')}
       title={typeLabel || t('캐릭터 허브', 'Character Hub')}
       subtitle={t('오늘 턴 진행에 맞춰 캐릭터 성장/특성 액션을 운영하세요.', 'Run growth and trait actions aligned with your daily turns.')}
+      hideHero
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}>
+      <View
+        style={{
+          ...cardStyle(theme),
+          backgroundColor: companionBackdrop.background,
+          borderColor: companionBackdrop.border,
+          height: sectionHeight,
+          borderRadius: 18,
+          justifyContent: 'space-between',
+          overflow: 'hidden',
+        }}>
+        <View
+          style={{
+            position: 'absolute',
+            left: 12,
+            top: 12,
+            width: 46,
+            height: 46,
+            borderRadius: 23,
+            borderWidth: 1,
+            borderColor: companionBackdrop.border,
+            backgroundColor: companionBackdrop.overlay,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <ThemedText style={{ fontSize: 18, color: isSleeping ? '#f7f2c8' : '#8a5a00', fontWeight: '800' }}>
+            {isSleeping ? '☾' : '☀'}
+          </ThemedText>
+        </View>
+
+        <View style={{ position: 'absolute', right: 12, top: 12, alignItems: 'flex-end' }}>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: theme.accent,
+              backgroundColor: theme.backgroundSelected,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 999,
+            }}>
+            <ThemedText style={{ fontSize: 12, fontWeight: '800', color: theme.accent }}>{`LV.${characterLevel}`}</ThemedText>
+          </View>
+        </View>
+
+        <View style={{ alignItems: 'center', marginTop: 52 }}>
+          <SpeechBubble message={chatter} />
+        </View>
+
+        <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+          <CharacterAvatar type={personaType} size={Math.min(92, Math.round(sectionHeight * 0.3))} animated />
+          <ThemedText style={{ fontSize: 11, color: isSleeping ? '#d5def2' : '#5b4a2a', marginTop: 6 }}>
+            {isSleeping ? t('현지 시간: 수면 모드', 'Local time: sleeping mode') : t('현지 시간: 활동 모드', 'Local time: active mode')}
+          </ThemedText>
+        </View>
+      </View>
+
       <GamePanel title={t('캐릭터 루프 상태', 'Character Loop Status')} subtitle={t('오늘 행동이 레벨과 타입 성장으로 연결됩니다.', 'Your daily actions feed level and type progression.')}>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <StatTile label={t('레벨', 'Level')} value={`Lv.${characterLevel}`} tone="accent" />
@@ -674,22 +766,6 @@ export default function MeScreen() {
       {error ? (
         <View style={{ ...cardStyle(theme), borderRadius: 16 }}>
           <ThemedText style={{ fontSize: 13, color: theme.destructive }}>{error}</ThemedText>
-        </View>
-      ) : null}
-
-      {profile ? (
-        <View style={{ ...cardStyle(theme), borderRadius: 16, alignItems: 'center', gap: 8 }}>
-          <CharacterAvatar type={nomadType} size={120} />
-          <ThemedText style={{ fontSize: 16, fontWeight: '700', color: typeConfig?.color ?? theme.accent }}>
-            {typeLabel}
-          </ThemedText>
-          {typeConfig ? (
-            <ThemedText style={{ fontSize: 12, color: theme.textSecondary, textAlign: 'center' }}>
-              {isKorean ? typeConfig.summaryKr : typeConfig.label}
-            </ThemedText>
-          ) : null}
-          <ThemedText style={{ fontSize: 18, fontWeight: '700' }}>{profile.name}</ThemedText>
-          <ThemedText style={{ fontSize: 12, color: theme.textSecondary }}>{profile.email}</ThemedText>
         </View>
       ) : null}
 

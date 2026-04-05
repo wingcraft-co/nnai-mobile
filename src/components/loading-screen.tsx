@@ -3,7 +3,7 @@ import React from 'react';
 import { View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { EarthAssets } from '@/constants/nomad-types';
+import { EarthAssets } from '@/constants/persona-types';
 import { useTheme } from '@/hooks/use-theme';
 
 export function LoadingScreen() {

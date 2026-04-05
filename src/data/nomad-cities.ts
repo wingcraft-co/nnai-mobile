@@ -78,14 +78,14 @@ export function searchCitiesLocal(query: string): NomadCity[] {
 }
 
 type GeoNamesResult = {
-  geonames: Array<{
+  geonames: {
     name: string;
     countryName: string;
     countryCode: string;
     lat: string;
     lng: string;
     population: number;
-  }>;
+  }[];
 };
 
 const GEONAMES_USERNAME = 'demo';

@@ -3,17 +3,17 @@ import React from 'react';
 import { View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { getNomadTypeConfig } from '@/constants/nomad-types';
-import type { NomadType } from '@/types/api';
+import { getPersonaTypeConfig } from '@/constants/persona-types';
+import type { PersonaType } from '@/types/api';
 
 type Props = {
-  type: NomadType | null;
+  type: PersonaType | null;
   size: number;
   animated?: boolean;
 };
 
 export function CharacterAvatar({ type, size, animated = false }: Props) {
-  const config = getNomadTypeConfig(type);
+  const config = getPersonaTypeConfig(type);
 
   if (!config) {
     return (

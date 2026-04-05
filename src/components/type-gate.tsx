@@ -5,7 +5,7 @@ import { Linking, Pressable, View } from 'react-native';
 import { fetchMe } from '@/api/auth';
 import { getToken } from '@/api/client';
 import { ThemedText } from '@/components/themed-text';
-import { EarthAssets } from '@/constants/nomad-types';
+import { EarthAssets } from '@/constants/persona-types';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import { useAuth } from '@/store/auth-store';
@@ -24,7 +24,7 @@ export function TypeGate() {
       const token = await getToken();
       if (!token) return;
       const user = await fetchMe();
-      if (user.nomad_type) {
+      if (user.persona_type) {
         login(token, user);
       }
     } catch {

@@ -218,6 +218,7 @@ export default function CityScreen() {
       eyebrow={t('도시 운영', 'City Ops')}
       title={t('도시 운영 콘솔', 'City Operation Console')}
       subtitle={t('비자/예산/체류일을 관리하고 이동 이벤트 턴을 준비하세요.', 'Manage visa, budget, and stay days to prep your migration event turn.')}
+      hideHero
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}>
       <GamePanel title={t('이동 이벤트 준비도', 'Migration Readiness')} subtitle={t('비자/예산/체류 조건을 맞추면 이동 턴이 열립니다.', 'Hit visa, budget, and stay conditions to unlock migration turn.')}>
         <View style={{ flexDirection: 'row', gap: 8 }}>

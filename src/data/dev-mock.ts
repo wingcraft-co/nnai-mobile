@@ -35,7 +35,7 @@ let posts: Post[] = [
     likes_count: 12,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
     liked: false,
-    author_nomad_type: 'planner',
+    author_persona_type: 'planner',
   },
   {
     id: 2,
@@ -52,7 +52,7 @@ let posts: Post[] = [
     likes_count: 7,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
     liked: true,
-    author_nomad_type: 'planner',
+    author_persona_type: 'planner',
   },
   {
     id: 3,
@@ -66,7 +66,7 @@ let posts: Post[] = [
     likes_count: 22,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
     liked: false,
-    author_nomad_type: 'free_spirit',
+    author_persona_type: 'local',
   },
   {
     id: 4,
@@ -80,7 +80,7 @@ let posts: Post[] = [
     likes_count: 9,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(),
     liked: false,
-    author_nomad_type: 'local',
+    author_persona_type: 'free_spirit',
   },
   {
     id: 5,
@@ -94,7 +94,7 @@ let posts: Post[] = [
     likes_count: 14,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
     liked: true,
-    author_nomad_type: 'planner',
+    author_persona_type: 'planner',
   },
   {
     id: 6,
@@ -108,7 +108,7 @@ let posts: Post[] = [
     likes_count: 17,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
     liked: false,
-    author_nomad_type: 'pioneer',
+    author_persona_type: 'pioneer',
   },
   {
     id: 7,
@@ -122,7 +122,7 @@ let posts: Post[] = [
     likes_count: 5,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 44).toISOString(),
     liked: false,
-    author_nomad_type: 'wanderer',
+    author_persona_type: 'wanderer',
   },
   {
     id: 8,
@@ -136,7 +136,7 @@ let posts: Post[] = [
     likes_count: 11,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 52).toISOString(),
     liked: true,
-    author_nomad_type: 'local',
+    author_persona_type: 'free_spirit',
   },
   {
     id: 9,
@@ -150,7 +150,7 @@ let posts: Post[] = [
     likes_count: 19,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
     liked: false,
-    author_nomad_type: 'planner',
+    author_persona_type: 'planner',
   },
   {
     id: 10,
@@ -164,7 +164,7 @@ let posts: Post[] = [
     likes_count: 8,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
     liked: false,
-    author_nomad_type: 'wanderer',
+    author_persona_type: 'wanderer',
   },
 ];
 
@@ -273,7 +273,7 @@ const profile: Profile = {
   name: tx('개발 사용자', 'Dev User'),
   picture: '',
   email: 'dev@nnai.app',
-  nomad_type: 'planner',
+  persona_type: 'planner',
   badges: [tx('얼리 노마드', 'Early Nomad'), tx('서클 호스트', 'Circle Host')],
   stats: {
     pins: 14,
@@ -287,7 +287,7 @@ const devUser: User = {
   name: tx('개발 사용자', 'Dev User'),
   picture: '',
   email: 'dev@nnai.app',
-  nomad_type: 'planner',
+  persona_type: 'planner',
 };
 
 let plannerBoards: PlannerBoard[] = [
@@ -456,7 +456,7 @@ export async function devMockApiRequest<T>(path: string, options: RequestInit = 
       likes_count: 0,
       created_at: new Date().toISOString(),
       liked: false,
-      author_nomad_type: devUser.nomad_type ?? 'wanderer',
+      author_persona_type: devUser.persona_type ?? 'wanderer',
     };
 
     posts = [created, ...posts];
