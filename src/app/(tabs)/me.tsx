@@ -4,6 +4,8 @@ import { Pressable, RefreshControl, TextInput, View } from 'react-native';
 import {
   createPlannerBoard,
   createPlannerTask,
+  createWandererHop,
+  deleteWandererHop,
   fetchLocalEventsSaved,
   fetchPioneerMilestones,
   fetchPlannerBoards,
@@ -15,6 +17,7 @@ import {
   saveLocalEvent,
   spinFreeSpirit,
 } from '@/api/type-actions';
+import { fetchCityStays } from '@/api/cities';
 import { fetchProfile } from '@/api/profile';
 import { CharacterAvatar } from '@/components/character-avatar';
 import { ScreenShell } from '@/components/screen-shell';
@@ -24,6 +27,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import { useAuth } from '@/store/auth-store';
 import type {
+  CityStay,
   LocalEventRec,
   NomadType,
   PlannerBoard,
@@ -31,6 +35,7 @@ import type {
   PioneerMilestone,
   Profile,
   WandererHop,
+  WandererHopCondition,
 } from '@/types/api';
 
 export default function MeScreen() {
@@ -48,6 +53,10 @@ export default function MeScreen() {
   const [plannerInput, setPlannerInput] = useState('');
   const [spinResult, setSpinResult] = useState<string | null>(null);
   const [wandererHops, setWandererHops] = useState<WandererHop[]>([]);
+  const [currentStay, setCurrentStay] = useState<CityStay | null>(null);
+  const [addingHop, setAddingHop] = useState(false);
+  const [newHopCity, setNewHopCity] = useState('');
+  const [newHopCountry, setNewHopCountry] = useState('');
   const [localEvents, setLocalEvents] = useState<LocalEventRec[]>([]);
   const [pioneerMilestones, setPioneerMilestones] = useState<PioneerMilestone[]>([]);
 
@@ -72,7 +81,12 @@ export default function MeScreen() {
     }
 
     if (currentType === 'wanderer') {
-      setWandererHops(await fetchWandererHops());
+      const [hops, stays] = await Promise.all([
+        fetchWandererHops(),
+        fetchCityStays(),
+      ]);
+      setWandererHops(hops);
+      setCurrentStay(stays.find((s) => s.left_at === null) ?? null);
       return;
     }
 
@@ -220,29 +234,223 @@ export default function MeScreen() {
     }
 
     if (nomadType === 'wanderer') {
+      const focusHop = wandererHops.find((h) => h.is_focus) ?? wandererHops[0] ?? null;
+      const candidateHops = wandererHops.filter((h) => h !== focusHop);
+
+      // 자동 조건 계산
+      const visaAutoOk = focusHop
+        ? ['Vietnam', 'Taiwan', 'Japan', 'Thailand', 'Portugal', 'Germany', 'France', 'Spain'].includes(focusHop.to_country)
+        : false;
+      const budgetAutoOk = currentStay?.budget_remaining != null && currentStay.budget_remaining > 0;
+
+      const autoConditions = focusHop
+        ? [
+            { id: '__visa__', label: t('비자 무비자 확인', 'Visa-free check'), is_done: visaAutoOk },
+            { id: '__budget__', label: t('예산 충분', 'Budget sufficient'), is_done: budgetAutoOk },
+          ]
+        : [];
+
+      const allConditions = focusHop
+        ? [...autoConditions, ...focusHop.conditions]
+        : [];
+      const fulfilledCount = allConditions.filter((c) => c.is_done).length;
+      const totalCount = allConditions.length;
+      const progressPct = totalCount > 0 ? Math.round((fulfilledCount / totalCount) * 100) : 0;
+
+      const onToggleCondition = async (conditionId: string) => {
+        if (!focusHop) return;
+        const updated = focusHop.conditions.map((c) =>
+          c.id === conditionId ? { ...c, is_done: !c.is_done } : c,
+        );
+        try {
+          const result = await patchWandererHop(focusHop.id, { conditions: updated });
+          setWandererHops((prev) => prev.map((h) => (h.id === result.id ? result : h)));
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : t('업데이트 실패', 'Failed to update.'));
+        }
+      };
+
+      const onSetFocus = async (hopId: number) => {
+        try {
+          const updates = await Promise.all(
+            wandererHops.map((h) =>
+              patchWandererHop(h.id, { is_focus: h.id === hopId }),
+            ),
+          );
+          setWandererHops(updates);
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : t('업데이트 실패', 'Failed to update.'));
+        }
+      };
+
+      const onAddHop = async () => {
+        if (!newHopCity.trim() || !newHopCountry.trim()) return;
+        try {
+          const created = await createWandererHop({
+            to_city: newHopCity.trim(),
+            to_country: newHopCountry.trim(),
+            status: 'planned',
+            conditions: [],
+            is_focus: wandererHops.length === 0,
+          });
+          setWandererHops((prev) => [...prev, created]);
+          setNewHopCity('');
+          setNewHopCountry('');
+          setAddingHop(false);
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : t('추가 실패', 'Failed to add hop.'));
+        }
+      };
+
+      const onDeleteHop = async (hopId: number) => {
+        try {
+          await deleteWandererHop(hopId);
+          setWandererHops((prev) => prev.filter((h) => h.id !== hopId));
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : t('삭제 실패', 'Failed to delete hop.'));
+        }
+      };
+
       return (
         <View style={cardStyle(theme)}>
-          <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>{t('다음 이동 계획', 'Next Hops')}</ThemedText>
-          {wandererHops.map((hop) => (
-            <Pressable
-              key={hop.id}
-              onPress={() =>
-                void (async () => {
-                  const nextStatus: WandererHop['status'] =
-                    hop.status === 'planned' ? 'booked' : hop.status === 'booked' ? 'visited' : 'planned';
-                  try {
-                    const updated = await patchWandererHop(hop.id, { status: nextStatus });
-                    setWandererHops((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
-                  } catch (e: unknown) {
-                    setError(e instanceof Error ? e.message : t('업데이트 실패', 'Failed to update.'));
-                  }
-                })()
-              }
-              style={{ borderWidth: 1, borderColor: theme.border, padding: 10, gap: 4 }}>
-              <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>{hop.to_city ?? hop.to_country}</ThemedText>
-              <ThemedText style={{ fontSize: 12, color: theme.accent }}>{hop.status.toUpperCase()}</ThemedText>
+          {/* 포커스 행선지 */}
+          {focusHop ? (
+            <>
+              <ThemedText style={{ fontSize: 13, fontWeight: '700', color: theme.accent, letterSpacing: 1 }}>
+                {t('다음 행선지', 'NEXT DESTINATION')}
+              </ThemedText>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {/* 원형 프로그레스 */}
+                <View style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  borderWidth: 3,
+                  borderColor: progressPct === 100 ? theme.accent : theme.border,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <ThemedText style={{ fontSize: 14, fontWeight: '700', color: progressPct === 100 ? theme.accent : theme.text }}>
+                    {progressPct}%
+                  </ThemedText>
+                </View>
+
+                <View style={{ flex: 1, gap: 2 }}>
+                  <ThemedText style={{ fontSize: 16, fontWeight: '700' }}>
+                    {focusHop.to_city ? `${focusHop.to_city}, ` : ''}{focusHop.to_country}
+                  </ThemedText>
+                  <ThemedText style={{ fontSize: 11, color: theme.accent }}>
+                    {focusHop.status.toUpperCase()}{focusHop.target_month ? ` · ${focusHop.target_month}` : ''}
+                  </ThemedText>
+                  <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+                    {t('조건', 'Conditions')} {fulfilledCount}/{totalCount}
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* 조건 태그 */}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {autoConditions.map((c) => (
+                  <View
+                    key={c.id}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: c.is_done ? theme.accent : theme.border,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    }}>
+                    <ThemedText style={{ fontSize: 11, fontWeight: '700', color: c.is_done ? theme.accent : theme.textSecondary }}>
+                      {c.is_done ? '✓ ' : '✗ '}{c.label}
+                    </ThemedText>
+                  </View>
+                ))}
+                {focusHop.conditions.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => void onToggleCondition(c.id)}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: c.is_done ? theme.accent : theme.border,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                    }}>
+                    <ThemedText style={{ fontSize: 11, fontWeight: '700', color: c.is_done ? theme.accent : theme.textSecondary }}>
+                      {c.is_done ? '✓ ' : '○ '}{c.label}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : (
+            <ThemedText style={{ fontSize: 13, color: theme.textSecondary }}>
+              {t('행선지 후보가 없습니다.', 'No destination set yet.')}
+            </ThemedText>
+          )}
+
+          {/* 후보 도시 */}
+          {candidateHops.length > 0 ? (
+            <View style={{ gap: 6 }}>
+              <ThemedText style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '700' }}>
+                {t('후보', 'CANDIDATES')}
+              </ThemedText>
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                {candidateHops.map((hop) => (
+                  <Pressable
+                    key={hop.id}
+                    onPress={() => void onSetFocus(hop.id)}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      opacity: 0.7,
+                    }}>
+                    <ThemedText style={{ fontSize: 12, fontWeight: '700' }}>
+                      {hop.to_city ?? hop.to_country}
+                    </ThemedText>
+                    <ThemedText style={{ fontSize: 10, color: theme.textSecondary }}>
+                      {hop.status}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* 새 행선지 추가 */}
+          {addingHop ? (
+            <View style={{ gap: 8 }}>
+              <TextInput
+                value={newHopCity}
+                onChangeText={setNewHopCity}
+                placeholder={t('도시 (예: Da Nang)', 'City (e.g. Da Nang)')}
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle(theme)}
+              />
+              <TextInput
+                value={newHopCountry}
+                onChangeText={setNewHopCountry}
+                placeholder={t('국가 (예: Vietnam)', 'Country (e.g. Vietnam)')}
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle(theme)}
+              />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable onPress={() => void onAddHop()} style={buttonStyle(theme)}>
+                  <ThemedText style={buttonTextStyle(theme)}>{t('추가', 'Add')}</ThemedText>
+                </Pressable>
+                <Pressable onPress={() => setAddingHop(false)} style={{ ...buttonStyle(theme), borderColor: theme.border }}>
+                  <ThemedText style={{ ...buttonTextStyle(theme), color: theme.textSecondary }}>{t('취소', 'Cancel')}</ThemedText>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable onPress={() => setAddingHop(true)} style={buttonStyle(theme)}>
+              <ThemedText style={buttonTextStyle(theme)}>
+                {t('+ 행선지 추가', '+ Add Destination')}
+              </ThemedText>
             </Pressable>
-          ))}
+          )}
         </View>
       );
     }
