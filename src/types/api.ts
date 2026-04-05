@@ -125,6 +125,12 @@ export type FreeSpiritSpin = {
   candidates_count: number;
 };
 
+export type WandererHopCondition = {
+  id: string;
+  label: string;
+  is_done: boolean;
+};
+
 export type WandererHop = {
   id: number;
   from_country: string | null;
@@ -132,7 +138,9 @@ export type WandererHop = {
   to_city: string | null;
   note: string | null;
   target_month: string | null;
-  status: 'planned' | 'booked' | 'visited' | 'dropped';
+  status: 'planned' | 'booked';
+  conditions: WandererHopCondition[];
+  is_focus: boolean;
 };
 
 export type LocalEventRec = {
@@ -163,4 +171,17 @@ export type PioneerMilestone = {
   status: 'todo' | 'doing' | 'done' | 'blocked';
   target_date: string | null;
   note: string | null;
+};
+
+export type CityStay = {
+  id: number;
+  city: string;
+  country: string | null;
+  arrived_at: string;        // "YYYY-MM-DD"
+  left_at: string | null;    // null = 현재 도시
+  visa_expires_at: string | null;
+  budget_total: number | null;
+  budget_remaining: number | null;
+  created_at: string;
+  updated_at: string;
 };
