@@ -40,11 +40,12 @@ test('city tab has a confirmation flow before leave action', () => {
   assert.match(content, /Alert\.alert\([\s\S]{0,240}?(?:Leave City|이 도시 떠나기)[\s\S]{0,240}?(?:Cancel|취소)/i);
 });
 
-test('character tab includes checkpoint guidance copy', () => {
+test('character tab includes explicit checkpoint guidance copy', () => {
   const content = read(ME_FILE);
 
-  assert.match(
-    content,
-    /(?:checkpoint[\s\S]{0,120}(?:guide|guidance|hint|reminder|copy|tips?|안내|가이드|힌트|리마인더)|(?:guide|guidance|hint|reminder|copy|tips?|안내|가이드|힌트|리마인더)[\s\S]{0,120}checkpoint)/i,
-  );
+  assert.match(content, /Growth Checkpoints/i);
+  assert.match(content, /How to complete checkpoints|체크포인트 완료 방법/);
+  assert.match(content, /Complete 1 planner task|플래너 할 일 1개 완료/);
+  assert.match(content, /save 1 local event|로컬 이벤트 1개 저장/i);
+  assert.match(content, /5-day streak|연속 5일 달성/i);
 });

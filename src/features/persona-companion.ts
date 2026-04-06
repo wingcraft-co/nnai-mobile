@@ -26,6 +26,7 @@ export function buildPersonaChatterLines(params: {
     0,
     Math.floor((new Date(now.toISOString().slice(0, 10)).getTime() - new Date(stay.arrived_at).getTime()) / 86400000),
   );
+  const dayLabel = days === 1 ? 'day' : 'days';
   const visaText = stay.visa_expires_at
     ? Math.floor((new Date(stay.visa_expires_at).getTime() - new Date(now.toISOString().slice(0, 10)).getTime()) / 86400000)
     : null;
@@ -48,7 +49,7 @@ export function buildPersonaChatterLines(params: {
     sleeping
       ? `${stay.city} is in sleep hours.`
       : `${stay.city} is in active hours.`,
-    `${days} days in ${stay.city}${stay.country ? `, ${stay.country}` : ''}.`,
+    `${days} ${dayLabel} in ${stay.city}${stay.country ? `, ${stay.country}` : ''}.`,
     stay.budget_remaining != null ? `Budget left: $${Math.round(stay.budget_remaining)}.` : 'No budget data.',
     visaText != null ? `Visa: D-${visaText}.` : 'No visa expiry data.',
     matchedCity
