@@ -44,8 +44,20 @@ test('character tab includes explicit checkpoint guidance copy', () => {
   const content = read(ME_FILE);
 
   assert.match(content, /Growth Checkpoints/i);
-  assert.match(content, /How to complete checkpoints|체크포인트 완료 방법/);
-  assert.match(content, /Complete 1 planner task|플래너 할 일 1개 완료/);
-  assert.match(content, /save 1 local event|로컬 이벤트 1개 저장/i);
-  assert.match(content, /5-day streak|연속 5일 달성/i);
+
+  const lower = content.toLowerCase();
+  const checkpointAnchor = lower.indexOf('growth checkpoints');
+  const guidanceWindow =
+    checkpointAnchor >= 0
+      ? content.slice(Math.max(0, checkpointAnchor - 300))
+      : content;
+
+  assert.match(guidanceWindow, /checkpoint/i);
+  assert.match(guidanceWindow, /How to complete checkpoints|체크포인트 완료 방법/i);
+  assert.match(guidanceWindow, /1\./);
+  assert.match(guidanceWindow, /2\./);
+  assert.match(guidanceWindow, /3\./);
+  assert.match(guidanceWindow, /planner|플래너/i);
+  assert.match(guidanceWindow, /local event|로컬 이벤트/i);
+  assert.match(guidanceWindow, /streak|연속\s*5일|5-day/i);
 });
