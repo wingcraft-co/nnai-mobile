@@ -28,7 +28,11 @@ export function ScreenShell({
   refreshControl,
 }: ScreenShellProps) {
   const theme = useTheme();
-  const day = new Date().getDate();
+  const today = new Date();
+  const dayLabel = today.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
@@ -39,15 +43,15 @@ export function ScreenShell({
           marginBottom: 8,
           borderWidth: 1,
           borderColor: theme.border,
-          borderRadius: 12,
-          backgroundColor: theme.backgroundElement,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          flexDirection: 'row',
-          justifyContent: 'space-between',
+          borderRadius: 14,
+          backgroundColor: theme.surfaceMuted,
+          paddingHorizontal: 14,
+          paddingVertical: 9,
+          alignItems: 'flex-start',
         }}>
-        <ThemedText style={{ fontSize: 11, fontWeight: '800', color: theme.accent }}>DAY {day}</ThemedText>
-        <ThemedText style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary }}>SIM MODE</ThemedText>
+        <ThemedText style={{ fontSize: 10, fontWeight: '800', color: theme.textSecondary, letterSpacing: 1.1 }}>
+          {dayLabel.toUpperCase()}
+        </ThemedText>
       </View>
       <ScrollView
         className="flex-1"
@@ -57,13 +61,13 @@ export function ScreenShell({
         {!hideHero ? (
           <View
             style={{
-              backgroundColor: theme.backgroundElement,
+              backgroundColor: theme.surface,
               borderColor: theme.border,
               borderWidth: 1,
-              borderRadius: 20,
+              borderRadius: 24,
               overflow: 'hidden',
               padding: 22,
-              gap: 8,
+              gap: 10,
             }}>
             <View
               style={{
@@ -73,8 +77,8 @@ export function ScreenShell({
                 width: 140,
                 height: 140,
                 borderRadius: 70,
-                backgroundColor: theme.backgroundSelected,
-                opacity: 0.9,
+                backgroundColor: theme.surfaceSelected,
+                opacity: 0.95,
               }}
             />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -85,7 +89,7 @@ export function ScreenShell({
                   paddingHorizontal: 12,
                   paddingVertical: 4,
                   borderRadius: 999,
-                  backgroundColor: invertEyebrow ? theme.accent : 'transparent',
+                  backgroundColor: invertEyebrow ? theme.accent : theme.surfaceMuted,
                 }}>
                 <ThemedText
                   style={{
