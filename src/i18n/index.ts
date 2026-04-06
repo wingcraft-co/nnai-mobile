@@ -1,6 +1,14 @@
+import { getLocales } from 'expo-localization';
+
 export type AppLanguage = 'ko' | 'en';
 
 function detectSystemLocale(): string {
+  const locales = getLocales();
+  const localeFromExpo = locales[0]?.languageTag || locales[0]?.languageCode;
+  if (localeFromExpo) {
+    return localeFromExpo;
+  }
+
   const intlLocale = Intl.DateTimeFormat().resolvedOptions().locale;
   if (intlLocale) {
     return intlLocale;

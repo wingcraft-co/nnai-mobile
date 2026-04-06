@@ -13,19 +13,19 @@ export function GamePanel({
   return (
     <View
       style={{
-        borderWidth: 2,
+        borderWidth: 1,
         borderColor: theme.border,
-        borderRadius: 14,
-        backgroundColor: theme.backgroundElement,
-        padding: 12,
-        gap: 8,
+        borderRadius: 18,
+        backgroundColor: theme.surface,
+        padding: 16,
+        gap: 10,
       }}>
       <View>
         <ThemedText style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1, color: theme.accent }}>
           {title.toUpperCase()}
         </ThemedText>
         {subtitle ? (
-          <ThemedText style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>{subtitle}</ThemedText>
+          <ThemedText style={{ fontSize: 11, color: theme.textSecondary, marginTop: 3, lineHeight: 15 }}>{subtitle}</ThemedText>
         ) : null}
       </View>
       {children}
@@ -51,10 +51,12 @@ export function StatTile({
         flex: 1,
         borderWidth: 1,
         borderColor: theme.border,
-        borderRadius: 10,
-        backgroundColor: theme.background,
-        paddingVertical: 8,
+        borderRadius: 14,
+        backgroundColor: theme.surfaceMuted,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
         alignItems: 'center',
+        gap: 2,
       }}>
       <ThemedText style={{ fontSize: 10, color: theme.textSecondary, fontWeight: '700' }}>{label}</ThemedText>
       <ThemedText style={{ fontSize: 15, color: toneColor, fontWeight: '800' }}>{value}</ThemedText>
@@ -81,7 +83,15 @@ export function ProgressMeter({
           {value}/{max}
         </ThemedText>
       </View>
-      <View style={{ height: 10, borderWidth: 1, borderColor: theme.border, borderRadius: 999, backgroundColor: theme.background }}>
+      <View
+        style={{
+          height: 10,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 999,
+          backgroundColor: theme.surfaceMuted,
+          overflow: 'hidden',
+        }}>
         <View
           style={{
             width: `${Math.round(ratio * 100)}%`,
@@ -111,12 +121,12 @@ export function PixelButton({
       onPress={onPress}
       style={{
         alignSelf: 'flex-start',
-        borderWidth: 2,
+        borderWidth: 1,
         borderColor: isAccent ? theme.accent : theme.border,
-        borderRadius: 10,
-        backgroundColor: isAccent ? theme.backgroundSelected : theme.background,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        borderRadius: 12,
+        backgroundColor: isAccent ? theme.surfaceSelected : theme.surfaceMuted,
+        paddingHorizontal: 14,
+        paddingVertical: 9,
       }}>
       <ThemedText style={{ fontSize: 12, fontWeight: '800', color: isAccent ? theme.accent : theme.textSecondary }}>
         {label}

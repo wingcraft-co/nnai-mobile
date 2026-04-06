@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -11,13 +11,32 @@ import { CharacterAvatar } from '@/components/character-avatar';
 import { SpeechBubble } from '@/components/speech-bubble';
 import { getCompanionMessage } from '@/constants/companion-messages';
 import type { CompanionContext } from '@/constants/companion-messages';
-import { BottomTabInset } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 import { useAuth } from '@/store/auth-store';
+
+const IOS_TAB_BAR_HEIGHT = 84;
+const COMPANION_TAB_BAR_CLEARANCE = -6;
+const COMPANION_BOTTOM_OFFSET = IOS_TAB_BAR_HEIGHT + COMPANION_TAB_BAR_CLEARANCE;
+const EASTER_EGG_URL = 'https://nnai.app';
+const EASTER_EGG_PATTERNS = [
+  '다음 도시를 찾아보자',
+  '다음 목적지를 찾아보자',
+  '새 도시',
+  '새 나라',
+  'new city',
+  'new country',
+  "find your next destination",
+];
 
 type Props = {
   context: CompanionContext;
 };
+
+function shouldOpenExternalForDestination(message: string | null): boolean {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return EASTER_EGG_PATTERNS.some((pattern) => normalized.includes(pattern.toLowerCase()));
+}
 
 export function FloatingCompanion({ context }: Props) {
   const { state } = useAuth();
@@ -65,9 +84,18 @@ export function FloatingCompanion({ context }: Props) {
     };
   }, []);
 
-  const onPress = useCallback(() => {
+  const onPressCharacter = useCallback(async () => {
+    if (shouldOpenExternalForDestination(message)) {
+      await Linking.openURL(EASTER_EGG_URL);
+      return;
+    }
     showBubble(context);
-  }, [context, showBubble]);
+  }, [context, message, showBubble]);
+
+  const onPressBubble = useCallback(async () => {
+    if (!shouldOpenExternalForDestination(message)) return;
+    await Linking.openURL(EASTER_EGG_URL);
+  }, [message]);
 
   if (!personaType) return null;
 
@@ -75,31 +103,36 @@ export function FloatingCompanion({ context }: Props) {
     <View
       style={{
         position: 'absolute',
-        right: 16,
-        bottom: BottomTabInset + 34,
-        alignItems: 'flex-end',
+        right: 12,
+        bottom: COMPANION_BOTTOM_OFFSET,
         zIndex: 100,
       }}
       pointerEvents="box-none">
-      <Animated.View style={[{ marginBottom: 1 }, animatedBubbleStyle]}>
-        {message ? <SpeechBubble message={message} tailAlign="right" /> : null}
-      </Animated.View>
-
-      <Pressable onPress={onPress}>
-        <Animated.View
-          style={[
-            {
-              width: 56,
-              height: 56,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'transparent',
-            },
-            animatedCharStyle,
-          ]}>
-          <CharacterAvatar type={personaType} size={48} animated />
+      <View style={{ alignItems: 'flex-end' }}>
+        <Animated.View style={[{ marginBottom: 6 }, animatedBubbleStyle]}>
+          {message ? (
+            <Pressable onPress={() => void onPressBubble()}>
+              <SpeechBubble message={message} tailAlign="right" />
+            </Pressable>
+          ) : null}
         </Animated.View>
-      </Pressable>
+
+        <Pressable onPress={() => void onPressCharacter()}>
+          <Animated.View
+            style={[
+              {
+                width: 56,
+                height: 56,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'transparent',
+              },
+              animatedCharStyle,
+            ]}>
+            <CharacterAvatar type={personaType} size={48} animated />
+          </Animated.View>
+        </Pressable>
+      </View>
     </View>
   );
 }

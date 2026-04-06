@@ -11,6 +11,9 @@ export type User = {
   picture: string;
   email: string;
   persona_type: PersonaType | null;
+  country?: string | null;
+  country_code?: string | null;
+  home_currency?: string | null;
 };
 
 export type Post = {
@@ -92,6 +95,9 @@ export type Profile = {
   picture: string;
   email: string;
   persona_type: PersonaType | null;
+  country?: string | null;
+  country_code?: string | null;
+  home_currency?: string | null;
   badges: string[];
   stats: {
     pins: number;

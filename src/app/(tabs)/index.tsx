@@ -20,6 +20,11 @@ import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
 import type { Post } from '@/types/api';
 
+const TURN_QUEST_TOTAL = 3;
+const ENERGY_STEP = 22;
+const PROGRESS_BASE = 20;
+const PROGRESS_STEP = 27;
+
 export default function FeedScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -71,13 +76,13 @@ export default function FeedScreen() {
     () => <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />,
     [onRefresh, refreshing, theme.accent],
   );
-  const questTotal = 3;
+  const questTotal = TURN_QUEST_TOTAL;
   const questDone = Math.min(
     questTotal,
     Number(posts.length > 0) + Number(posts.some((post) => post.liked)) + Number(posts.some((post) => post.tags.length > 0)),
   );
-  const energy = Math.max(0, 100 - questDone * 22);
-  const xp = Math.min(100, 20 + questDone * 27);
+  const energy = Math.max(0, 100 - questDone * ENERGY_STEP);
+  const xp = Math.min(100, PROGRESS_BASE + questDone * PROGRESS_STEP);
 
   const onLike = useCallback(async (postId: number) => {
     setPosts((prev) =>
@@ -167,7 +172,7 @@ export default function FeedScreen() {
         <View key={`page-${pageIndex}`} className="gap-2">
           {pageIndex === 0 ? (
             <ThemedText className="text-xs font-bold" style={{ color: theme.textSecondary, letterSpacing: 1 }}>
-              {t('오늘의 상황 카드', 'TODAY SITUATION CARDS')}
+              {t('오늘의 출근 도장', 'TODAY ATTENDANCE CHECK')}
             </ThemedText>
           ) : null}
           <View className="flex-row flex-wrap justify-between">
@@ -203,8 +208,23 @@ function FlipPostCard({
 }) {
   const flip = useSharedValue(0);
   const [flipped, setFlipped] = useState(false);
-  const authorId = post.user_id;
+  const [imageFailed, setImageFailed] = useState(false);
+  const [imageRetryNonce, setImageRetryNonce] = useState(0);
   const authorLevel = getPostAuthorLevel(post);
+  const hasPicture = Boolean(post.picture?.trim());
+  const showImageFallback = !hasPicture || imageFailed;
+  const imageUri = hasPicture ? appendRetryNonce(post.picture!, imageRetryNonce) : null;
+  const fallbackTitle = imageFailed
+    ? t('이미지를 불러오지 못했습니다.', 'Image failed to load')
+    : t('이미지 준비 중', 'Image coming soon');
+  const fallbackBody = imageFailed
+    ? t('카드를 눌러 이미지를 다시 시도하세요.', 'Tap the card to retry the image.')
+    : t('상황 카드 데이터가 동기화되면 표시됩니다.', 'Card media will appear after sync.');
+
+  useEffect(() => {
+    setImageFailed(false);
+    setImageRetryNonce(0);
+  }, [post.picture]);
 
   const frontAnimatedStyle = useAnimatedStyle(() => {
     const rotateY = interpolate(flip.value, [0, 1], [0, 180]);
@@ -227,6 +247,12 @@ function FlipPostCard({
       duration: 350,
       easing: Easing.out(Easing.cubic),
     });
+  };
+
+  const retryImage = () => {
+    if (!hasPicture) return;
+    setImageFailed(false);
+    setImageRetryNonce((prev) => prev + 1);
   };
 
   return (
@@ -260,7 +286,7 @@ function FlipPostCard({
             zIndex: 20,
             color: '#ffffff',
           }}>
-          ID:{authorId}
+          {t('노마드 포스트', 'Nomad Post')}
         </ThemedText>
         <View
           style={{
@@ -281,12 +307,51 @@ function FlipPostCard({
             LV.{authorLevel}
           </ThemedText>
         </View>
-        {post.picture?.trim() ? (
-          <Image source={{ uri: post.picture }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+        {!showImageFallback && imageUri ? (
+          <Image
+            source={{ uri: imageUri }}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="cover"
+            onError={() => setImageFailed(true)}
+          />
         ) : (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.backgroundSelected }}>
-            <CharacterAvatar type={post.author_persona_type ?? 'local'} size={80} />
-          </View>
+          <Pressable
+            disabled={!imageFailed}
+            onPress={(event) => {
+              event.stopPropagation();
+              retryImage();
+            }}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.backgroundSelected,
+              paddingHorizontal: 14,
+              gap: 8,
+            }}>
+            <CharacterAvatar type={post.author_persona_type ?? 'local'} size={64} />
+            <ThemedText className="text-xs font-bold" style={{ color: theme.text }}>
+              {fallbackTitle}
+            </ThemedText>
+            <ThemedText className="text-center text-[11px]" style={{ color: theme.textSecondary, lineHeight: 16 }}>
+              {fallbackBody}
+            </ThemedText>
+            {imageFailed ? (
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.accent,
+                  backgroundColor: theme.backgroundElement,
+                  borderRadius: 999,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                }}>
+                <ThemedText className="text-[11px] font-bold" style={{ color: theme.accent }}>
+                  {t('다시 시도', 'Retry image')}
+                </ThemedText>
+              </View>
+            ) : null}
+          </Pressable>
         )}
       </Animated.View>
 
@@ -382,28 +447,60 @@ function TurnBoard({
   questTotal: number;
 }) {
   const quests = [
-    t('체크인 1회', '1 Check-in'),
-    t('좋아요 또는 댓글 1회', '1 Like or Comment'),
-    t('내일 이동 후보 검토', 'Review Next Destination'),
+    t('포스트 1개 이상 유지', 'Keep at least one post'),
+    t('좋아요한 포스트 1개 만들기', 'Have one liked post'),
+    t('태그가 있는 포스트 1개 확인', 'Have one tagged post'),
   ];
+  const isTurnComplete = questDone >= questTotal;
 
   return (
     <GamePanel title={t('턴 대시보드', 'Turn Dashboard')} subtitle={t('하루 1턴을 완료하면 다음 이벤트가 열립니다.', 'Complete one daily turn to unlock your next event.')}>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <StatTile label={t('에너지', 'ENERGY')} value={`${energy}%`} />
-        <StatTile label={t('성장치', 'XP')} value={`${xp}%`} tone="accent" />
-        <StatTile label={t('완료', 'DONE')} value={`${questDone}/${questTotal}`} />
-      </View>
-      <ProgressMeter label={t('오늘의 퀘스트', 'Today Quests')} value={questDone} max={questTotal} />
-      <View style={{ gap: 6 }}>
-        {quests.map((quest, idx) => (
-          <ThemedText
-            key={quest}
-            className="text-xs font-bold"
-            style={{ color: idx < questDone ? theme.accent : theme.textSecondary }}>
-            {idx < questDone ? '✓ ' : '○ '} {quest}
-          </ThemedText>
-        ))}
+      <View style={{ position: 'relative', borderRadius: 14, overflow: 'hidden' }}>
+        <View pointerEvents={isTurnComplete ? 'none' : 'auto'} style={{ opacity: isTurnComplete ? 0.35 : 1 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <StatTile label={t('에너지', 'Energy')} value={`${energy}%`} />
+            <StatTile label={t('진행도', 'Progress')} value={`${xp}%`} tone="accent" />
+            <StatTile label={t('완료', 'Completed')} value={`${questDone}/${questTotal}`} />
+          </View>
+          <ProgressMeter label={t('오늘의 퀘스트', 'Today Quests')} value={questDone} max={questTotal} />
+          <View style={{ gap: 6 }}>
+            {quests.map((quest, idx) => (
+              <ThemedText
+                key={quest}
+                className="text-xs font-bold"
+                style={{ color: idx < questDone ? theme.accent : theme.textSecondary }}>
+                {idx < questDone ? '✓ ' : '○ '} {quest}
+              </ThemedText>
+            ))}
+          </View>
+        </View>
+        {isTurnComplete ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            <View
+              style={{
+                borderWidth: 2,
+                borderColor: theme.accent,
+                backgroundColor: '#ffffffee',
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                transform: [{ rotate: '-8deg' }],
+              }}>
+              <ThemedText style={{ color: theme.accent, fontWeight: '800', letterSpacing: 1.1 }}>
+                {t('완료 스탬프', 'COMPLETED STAMP')}
+              </ThemedText>
+            </View>
+          </View>
+        ) : null}
       </View>
     </GamePanel>
   );
@@ -416,4 +513,9 @@ function chunk<T>(items: T[], size: number): T[][] {
     out.push(items.slice(i, i + size));
   }
   return out;
+}
+
+function appendRetryNonce(uri: string, nonce: number): string {
+  if (nonce === 0) return uri;
+  return `${uri}${uri.includes('?') ? '&' : '?'}retry=${nonce}`;
 }

@@ -39,3 +39,10 @@ test('persona companion helper defines sleep window and local-time sleep decisio
   assert.match(content, /WORLD_AVERAGE_WAKE_HOUR/);
   assert.match(content, /isSleepingByLocalTime/);
 });
+
+test('me tab companion card keeps night theme and uses white background in daytime', () => {
+  const content = fs.readFileSync(ME_TAB_FILE, 'utf8');
+
+  assert.match(content, /background:\s*'#1a2133'/);
+  assert.match(content, /:\s*\{\s*background:\s*'#ffffff'/);
+});
