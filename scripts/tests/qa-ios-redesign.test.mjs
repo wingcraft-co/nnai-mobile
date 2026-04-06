@@ -20,6 +20,22 @@ test('turn tab hides raw author ID from the UI', () => {
   assert.doesNotMatch(content, /\bID\b\s*[:\-]?\s*\{\s*[^}]+\s*\}/i);
 });
 
+test('turn tab provides explicit situation-card fallback for missing or failed images', () => {
+  const content = read(FEED_FILE);
+
+  assert.match(content, /onError=\{/);
+  assert.match(content, /Image coming soon|이미지 준비 중/);
+  assert.match(content, /after sync|동기화/);
+});
+
+test('turn tab uses clear metric labels', () => {
+  const content = read(FEED_FILE);
+
+  assert.match(content, /StatTile label=\{t\('에너지', 'Energy'\)/);
+  assert.match(content, /StatTile label=\{t\('진행도', 'Progress'\)/);
+  assert.match(content, /StatTile label=\{t\('완료', 'Completed'\)/);
+});
+
 test('screen shell does not render SIM MODE', () => {
   const content = read(SHELL_FILE);
 

@@ -203,8 +203,14 @@ function FlipPostCard({
 }) {
   const flip = useSharedValue(0);
   const [flipped, setFlipped] = useState(false);
-  const authorId = post.user_id;
+  const [imageFailed, setImageFailed] = useState(false);
   const authorLevel = getPostAuthorLevel(post);
+  const hasPicture = Boolean(post.picture?.trim());
+  const showImageFallback = !hasPicture || imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [post.picture]);
 
   const frontAnimatedStyle = useAnimatedStyle(() => {
     const rotateY = interpolate(flip.value, [0, 1], [0, 180]);
@@ -260,7 +266,7 @@ function FlipPostCard({
             zIndex: 20,
             color: '#ffffff',
           }}>
-          ID:{authorId}
+          {t('노마드 포스트', 'Nomad Post')}
         </ThemedText>
         <View
           style={{
@@ -281,11 +287,33 @@ function FlipPostCard({
             LV.{authorLevel}
           </ThemedText>
         </View>
-        {post.picture?.trim() ? (
-          <Image source={{ uri: post.picture }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+        {!showImageFallback && post.picture ? (
+          <Image
+            source={{ uri: post.picture }}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="cover"
+            onError={() => setImageFailed(true)}
+          />
         ) : (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.backgroundSelected }}>
-            <CharacterAvatar type={post.author_persona_type ?? 'local'} size={80} />
+          <View
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.backgroundSelected,
+              paddingHorizontal: 14,
+              gap: 8,
+            }}>
+            <CharacterAvatar type={post.author_persona_type ?? 'local'} size={64} />
+            <ThemedText className="text-xs font-bold" style={{ color: theme.text }}>
+              {t('이미지 준비 중', 'Image coming soon')}
+            </ThemedText>
+            <ThemedText className="text-center text-[11px]" style={{ color: theme.textSecondary, lineHeight: 16 }}>
+              {t(
+                '상황 카드 데이터가 동기화되면 표시됩니다.',
+                'Card media will appear after sync.',
+              )}
+            </ThemedText>
           </View>
         )}
       </Animated.View>
@@ -390,9 +418,9 @@ function TurnBoard({
   return (
     <GamePanel title={t('턴 대시보드', 'Turn Dashboard')} subtitle={t('하루 1턴을 완료하면 다음 이벤트가 열립니다.', 'Complete one daily turn to unlock your next event.')}>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <StatTile label={t('에너지', 'ENERGY')} value={`${energy}%`} />
-        <StatTile label={t('성장치', 'XP')} value={`${xp}%`} tone="accent" />
-        <StatTile label={t('완료', 'DONE')} value={`${questDone}/${questTotal}`} />
+        <StatTile label={t('에너지', 'Energy')} value={`${energy}%`} />
+        <StatTile label={t('진행도', 'Progress')} value={`${xp}%`} tone="accent" />
+        <StatTile label={t('완료', 'Completed')} value={`${questDone}/${questTotal}`} />
       </View>
       <ProgressMeter label={t('오늘의 퀘스트', 'Today Quests')} value={questDone} max={questTotal} />
       <View style={{ gap: 6 }}>
