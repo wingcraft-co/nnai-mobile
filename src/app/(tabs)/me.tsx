@@ -761,6 +761,28 @@ export default function MeScreen() {
           <StatTile label={t('유형', 'Type')} value={typeLabel || '-'} />
         </View>
         <ProgressMeter label={t('성장 체크포인트', 'Growth Checkpoints')} value={growthDone} max={3} />
+        <View style={{ gap: 6, paddingTop: 2 }}>
+          <ThemedText style={{ fontSize: 12, fontWeight: '700', color: theme.text }}>
+            {t('체크포인트 완료 방법', 'How to complete checkpoints')}
+          </ThemedText>
+          <ThemedText style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 18 }}>
+            {t(
+              '플래너 할 일 1개를 완료하고, 로컬 이벤트 1개를 저장하고, 연속 5일 턴을 달성하면 성장 체크포인트가 채워집니다.',
+              'Complete 1 planner task, save 1 local event, and reach a 5-day streak to fill Growth Checkpoints.',
+            )}
+          </ThemedText>
+          <View style={{ gap: 4 }}>
+            <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+              {t('1. 플래너 할 일 1개 완료', '1. Complete 1 planner task')}
+            </ThemedText>
+            <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+              {t('2. 로컬 이벤트 1개 저장', '2. Save 1 local event')}
+            </ThemedText>
+            <ThemedText style={{ fontSize: 11, color: theme.textSecondary }}>
+              {t('3. 연속 5일 달성', '3. Reach a 5-day streak')}
+            </ThemedText>
+          </View>
+        </View>
       </GamePanel>
 
       {error ? (

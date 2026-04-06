@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "test:qa-ios": "node --test scripts/tests/qa-ios-redesign.test.mjs",
     "test:persona": "node --test scripts/tests/persona-standard.test.mjs",
     "test:me": "node --test scripts/tests/me-tab-companion.test.mjs"
   },
