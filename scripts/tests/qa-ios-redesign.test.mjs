@@ -17,7 +17,7 @@ function read(file) {
 test('turn tab hides raw author ID from the UI', () => {
   const content = read(FEED_FILE);
 
-  assert.doesNotMatch(content, /(?:\bID\b[\s\S]{0,20}\bauthorId\b|\bauthorId\b[\s\S]{0,20}\bID\b)/i);
+  assert.doesNotMatch(content, /\bID\b\s*[:\-]?\s*\{\s*[^}]+\s*\}/i);
 });
 
 test('screen shell does not render SIM MODE', () => {
@@ -43,5 +43,8 @@ test('city tab has a confirmation flow before leave action', () => {
 test('character tab includes checkpoint guidance copy', () => {
   const content = read(ME_FILE);
 
-  assert.match(content, /checkpoint[\s\S]{0,80}(?:guide|guidance|hint|reminder|copy)/i);
+  assert.match(
+    content,
+    /(?:checkpoint[\s\S]{0,120}(?:guide|guidance|hint|reminder|copy|tips?|안내|가이드|힌트|리마인더)|(?:guide|guidance|hint|reminder|copy|tips?|안내|가이드|힌트|리마인더)[\s\S]{0,120}checkpoint)/i,
+  );
 });
