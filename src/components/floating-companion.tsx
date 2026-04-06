@@ -75,8 +75,8 @@ export function FloatingCompanion({ context }: Props) {
     <View
       style={{
         position: 'absolute',
-        right: 16,
-        bottom: BottomTabInset + 34,
+        right: 12,
+        bottom: BottomTabInset - 24,
         alignItems: 'flex-end',
         zIndex: 100,
       }}

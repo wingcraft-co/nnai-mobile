@@ -1,6 +1,7 @@
 import { Tabs, usePathname } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Text, useColorScheme, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { FloatingCompanion } from '@/components/floating-companion';
 import type { CompanionContext } from '@/constants/companion-messages';
@@ -47,57 +48,44 @@ export default function TabsLayout() {
             backgroundColor: colors.backgroundElement,
             borderTopColor: colors.border,
             borderTopWidth: 1,
-            height: 86,
-            paddingBottom: 8,
-            paddingTop: 10,
+            height: 84,
+            paddingBottom: 10,
+            paddingTop: 8,
           },
           tabBarLabelStyle: {
             fontSize: 12,
             fontWeight: '700',
-            letterSpacing: 0.5,
           },
         }}>
         <Tabs.Screen
           name="index"
           options={{
             title: t('턴', 'Turn'),
-            tabBarIcon: ({ color }) => <TabIcon label="T" color={color} />,
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons color={color} name="clipboard-check-outline" size={size} />
+            ),
           }}
         />
         <Tabs.Screen
           name="city"
           options={{
             title: t('도시', 'City'),
-            tabBarIcon: ({ color }) => <TabIcon label="C" color={color} />,
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons color={color} name="map-marker-outline" size={size} />
+            ),
           }}
         />
         <Tabs.Screen
           name="me"
           options={{
             title: t('캐릭터', 'Character'),
-            tabBarIcon: ({ color }) => <TabIcon label="R" color={color} />,
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons color={color} name="account-circle-outline" size={size} />
+            ),
           }}
         />
       </Tabs>
       <FloatingCompanion context={companionContext} />
-    </View>
-  );
-}
-
-function TabIcon({ label, color }: { label: string; color: string }) {
-  return (
-    <View
-      style={{
-        width: 30,
-        height: 30,
-        borderWidth: 1,
-        borderColor: color,
-        borderRadius: 15,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'transparent',
-      }}>
-      <Text style={{ color, fontSize: 13, fontWeight: '800' }}>{label}</Text>
     </View>
   );
 }
