@@ -11,9 +11,12 @@ import { CharacterAvatar } from '@/components/character-avatar';
 import { SpeechBubble } from '@/components/speech-bubble';
 import { getCompanionMessage } from '@/constants/companion-messages';
 import type { CompanionContext } from '@/constants/companion-messages';
-import { BottomTabInset } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 import { useAuth } from '@/store/auth-store';
+
+const IOS_TAB_BAR_HEIGHT = 84;
+const COMPANION_TAB_BAR_CLEARANCE = 12;
+const COMPANION_BOTTOM_OFFSET = IOS_TAB_BAR_HEIGHT + COMPANION_TAB_BAR_CLEARANCE;
 
 type Props = {
   context: CompanionContext;
@@ -76,7 +79,7 @@ export function FloatingCompanion({ context }: Props) {
       style={{
         position: 'absolute',
         right: 12,
-        bottom: BottomTabInset - 24,
+        bottom: COMPANION_BOTTOM_OFFSET,
         alignItems: 'flex-end',
         zIndex: 100,
       }}
