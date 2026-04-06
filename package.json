@@ -16,6 +16,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@fontsource-variable/geist": "^5.2.8",
+    "@react-native-community/datetimepicker": "8.6.0",
     "@react-navigation/bottom-tabs": "^7.15.5",
     "@react-navigation/elements": "^2.9.10",
     "@react-navigation/native": "^7.1.33",
@@ -30,6 +31,7 @@
     "expo-image": "~55.0.6",
     "expo-image-picker": "~55.0.16",
     "expo-linking": "~55.0.9",
+    "expo-localization": "~55.0.11",
     "expo-location": "~55.1.6",
     "expo-router": "~55.0.8",
     "expo-secure-store": "~55.0.9",

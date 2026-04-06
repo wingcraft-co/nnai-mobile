@@ -9,6 +9,8 @@ const SHELL_FILE = path.join(ROOT, 'src', 'components', 'screen-shell.tsx');
 const TABS_FILE = path.join(ROOT, 'src', 'app', '(tabs)', '_layout.tsx');
 const CITY_FILE = path.join(ROOT, 'src', 'app', '(tabs)', 'city.tsx');
 const ME_FILE = path.join(ROOT, 'src', 'app', '(tabs)', 'me.tsx');
+const COMPANION_FILE = path.join(ROOT, 'src', 'components', 'floating-companion.tsx');
+const COMPANION_MESSAGES_FILE = path.join(ROOT, 'src', 'constants', 'companion-messages.ts');
 
 function read(file) {
   return fs.readFileSync(file, 'utf8');
@@ -20,10 +22,34 @@ test('turn tab hides raw author ID from the UI', () => {
   assert.doesNotMatch(content, /\bID\b\s*[:\-]?\s*\{\s*[^}]+\s*\}/i);
 });
 
+test('turn dashboard dims and shows completion stamp when all quests are done', () => {
+  const content = read(FEED_FILE);
+
+  assert.match(content, /isTurnComplete\s*=\s*questDone\s*>=\s*questTotal/);
+  assert.match(content, /opacity:\s*isTurnComplete\s*\?\s*0\.35\s*:\s*1/);
+  assert.match(content, /pointerEvents=\{isTurnComplete\s*\?\s*'none'\s*:\s*'auto'\}/);
+  assert.match(content, /완료 스탬프|COMPLETED STAMP/);
+});
+
 test('screen shell does not render SIM MODE', () => {
   const content = read(SHELL_FILE);
 
   assert.doesNotMatch(content, /SIM MODE/);
+});
+
+test('screen shell top bar shows full date and right-side FX from home country fallback KRW', () => {
+  const content = read(SHELL_FILE);
+
+  assert.match(content, /formatTopDate/);
+  assert.match(content, /\$\{year\},\s\$\{day\}\s\$\{month\}/);
+  assert.match(content, /Promise\.allSettled/);
+  assert.match(content, /fetchProfile/);
+  assert.match(content, /fetchCityStays/);
+  assert.match(content, /DEFAULT_HOME_CURRENCY/);
+  assert.match(content, /DEFAULT_LOCAL_CURRENCY/);
+  assert.match(content, /frankfurter\.app/);
+  assert.match(content, /KRW/);
+  assert.match(content, /환율 정보 없음|FX unavailable/);
 });
 
 test('tabs use semantic icons instead of single-letter circles', () => {
@@ -60,4 +86,18 @@ test('character tab includes explicit checkpoint guidance copy', () => {
   assert.match(guidanceWindow, /planner|플래너/i);
   assert.match(guidanceWindow, /local event|로컬 이벤트/i);
   assert.match(guidanceWindow, /streak|연속\s*5일|5-day/i);
+});
+
+test('companion opens external browser from character tap for new city/country guidance', () => {
+  const companion = read(COMPANION_FILE);
+  const messages = read(COMPANION_MESSAGES_FILE);
+
+  assert.match(messages, /새 나라/);
+  assert.match(companion, /COMPANION_TAB_BAR_CLEARANCE\s*=\s*-6/);
+  assert.doesNotMatch(companion, /flexDirection:\s*'row'/);
+  assert.match(companion, /marginBottom:\s*6/);
+  assert.doesNotMatch(companion, /tailDirection=\"right\"/);
+  assert.match(companion, /shouldOpenExternalForDestination/);
+  assert.match(companion, /if\s*\(\s*shouldOpenExternalForDestination\(message\)\s*\)\s*\{[\s\S]{0,200}?Linking\.openURL\(EASTER_EGG_URL\)[\s\S]{0,80}?return;/);
+  assert.match(companion, /<Pressable onPress=\{\(\)\s*=>\s*void onPressCharacter\(\)\}>/);
 });

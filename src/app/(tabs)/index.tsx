@@ -172,7 +172,7 @@ export default function FeedScreen() {
         <View key={`page-${pageIndex}`} className="gap-2">
           {pageIndex === 0 ? (
             <ThemedText className="text-xs font-bold" style={{ color: theme.textSecondary, letterSpacing: 1 }}>
-              {t('오늘의 상황 카드', 'TODAY SITUATION CARDS')}
+              {t('오늘의 출근 도장', 'TODAY ATTENDANCE CHECK')}
             </ThemedText>
           ) : null}
           <View className="flex-row flex-wrap justify-between">
@@ -451,24 +451,56 @@ function TurnBoard({
     t('좋아요한 포스트 1개 만들기', 'Have one liked post'),
     t('태그가 있는 포스트 1개 확인', 'Have one tagged post'),
   ];
+  const isTurnComplete = questDone >= questTotal;
 
   return (
     <GamePanel title={t('턴 대시보드', 'Turn Dashboard')} subtitle={t('하루 1턴을 완료하면 다음 이벤트가 열립니다.', 'Complete one daily turn to unlock your next event.')}>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <StatTile label={t('에너지', 'Energy')} value={`${energy}%`} />
-        <StatTile label={t('진행도', 'Progress')} value={`${xp}%`} tone="accent" />
-        <StatTile label={t('완료', 'Completed')} value={`${questDone}/${questTotal}`} />
-      </View>
-      <ProgressMeter label={t('오늘의 퀘스트', 'Today Quests')} value={questDone} max={questTotal} />
-      <View style={{ gap: 6 }}>
-        {quests.map((quest, idx) => (
-          <ThemedText
-            key={quest}
-            className="text-xs font-bold"
-            style={{ color: idx < questDone ? theme.accent : theme.textSecondary }}>
-            {idx < questDone ? '✓ ' : '○ '} {quest}
-          </ThemedText>
-        ))}
+      <View style={{ position: 'relative', borderRadius: 14, overflow: 'hidden' }}>
+        <View pointerEvents={isTurnComplete ? 'none' : 'auto'} style={{ opacity: isTurnComplete ? 0.35 : 1 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <StatTile label={t('에너지', 'Energy')} value={`${energy}%`} />
+            <StatTile label={t('진행도', 'Progress')} value={`${xp}%`} tone="accent" />
+            <StatTile label={t('완료', 'Completed')} value={`${questDone}/${questTotal}`} />
+          </View>
+          <ProgressMeter label={t('오늘의 퀘스트', 'Today Quests')} value={questDone} max={questTotal} />
+          <View style={{ gap: 6 }}>
+            {quests.map((quest, idx) => (
+              <ThemedText
+                key={quest}
+                className="text-xs font-bold"
+                style={{ color: idx < questDone ? theme.accent : theme.textSecondary }}>
+                {idx < questDone ? '✓ ' : '○ '} {quest}
+              </ThemedText>
+            ))}
+          </View>
+        </View>
+        {isTurnComplete ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            <View
+              style={{
+                borderWidth: 2,
+                borderColor: theme.accent,
+                backgroundColor: '#ffffffee',
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                transform: [{ rotate: '-8deg' }],
+              }}>
+              <ThemedText style={{ color: theme.accent, fontWeight: '800', letterSpacing: 1.1 }}>
+                {t('완료 스탬프', 'COMPLETED STAMP')}
+              </ThemedText>
+            </View>
+          </View>
+        ) : null}
       </View>
     </GamePanel>
   );

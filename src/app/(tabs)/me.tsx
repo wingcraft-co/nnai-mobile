@@ -70,6 +70,7 @@ export default function MeScreen() {
   const [citySearching, setCitySearching] = useState(false);
   const [selectedCity, setSelectedCity] = useState<NomadCity | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localTaskIdRef = useRef(-1);
   const [localEvents, setLocalEvents] = useState<LocalEventRec[]>([]);
   const [pioneerMilestones, setPioneerMilestones] = useState<PioneerMilestone[]>([]);
   const [, setClockTick] = useState(0);
@@ -78,7 +79,8 @@ export default function MeScreen() {
   const personaType: PersonaType | null = state.status === 'authenticated' ? state.user.persona_type : null;
   const typeConfig = getPersonaTypeConfig(personaType);
   const actionType = typeConfig?.actionType ?? null;
-  const typeLabel = typeConfig ? (isKorean ? typeConfig.labelKr : typeConfig.label) : '';
+  // Persona type names are product terms and should remain in English regardless of app language.
+  const typeLabel = typeConfig?.label ?? typeConfig?.labelKr ?? '';
   const plannerDoneCount = useMemo(() => plannerTasks.filter((x) => x.is_done).length, [plannerTasks]);
   const localSavedCount = useMemo(() => localEvents.filter((x) => x.status !== 'recommended').length, [localEvents]);
   const characterLevel = useMemo(() => {
@@ -105,7 +107,7 @@ export default function MeScreen() {
   const isSleeping = isSleepingByLocalTime(new Date());
   const companionBackdrop = isSleeping
     ? { background: '#1a2133', border: '#3a4d7a', overlay: '#7f97d9' }
-    : { background: '#fff6dd', border: '#d9b46b', overlay: '#ffdd8f' };
+    : { background: '#ffffff', border: '#d9b46b', overlay: '#ffdd8f' };
 
   const loadData = useCallback(async () => {
     const profileData = await fetchProfile();
@@ -187,6 +189,48 @@ export default function MeScreen() {
     return created;
   }, [plannerBoards, t]);
 
+  const onAddPlannerTask = useCallback(async () => {
+    const text = plannerInput.trim();
+    if (!text) return;
+
+    try {
+      const board = await ensurePlannerBoard();
+      const created = await createPlannerTask(board.id, { text });
+      setPlannerTasks((prev) => [...prev, created]);
+      setPlannerInput('');
+    } catch (e: unknown) {
+      // Keep checklist usable even when backend write fails.
+      const fallbackTask: PlannerTask = {
+        id: localTaskIdRef.current--,
+        board_id: plannerBoards[0]?.id ?? -1,
+        text,
+        is_done: false,
+        due_date: null,
+        sort_order: plannerTasks.length + 1,
+      };
+      setPlannerTasks((prev) => [...prev, fallbackTask]);
+      setPlannerInput('');
+      setError(e instanceof Error ? e.message : t('추가에 실패했습니다. 로컬 체크리스트로 저장했습니다.', 'Failed to sync. Saved as local checklist item.'));
+    }
+  }, [ensurePlannerBoard, plannerBoards, plannerInput, plannerTasks.length, t]);
+
+  const onTogglePlannerTask = useCallback(async (task: PlannerTask) => {
+    const nextDone = !task.is_done;
+    setPlannerTasks((prev) => prev.map((x) => (x.id === task.id ? { ...x, is_done: nextDone } : x)));
+
+    if (task.id < 0) {
+      return;
+    }
+
+    try {
+      const updated = await patchPlannerTask(task.id, { is_done: nextDone });
+      setPlannerTasks((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+    } catch (e: unknown) {
+      setPlannerTasks((prev) => prev.map((x) => (x.id === task.id ? { ...x, is_done: task.is_done } : x)));
+      setError(e instanceof Error ? e.message : t('수정에 실패했습니다.', 'Failed to update task.'));
+    }
+  }, [t]);
+
   const renderTypeAction = () => {
     if (!actionType) {
       return (
@@ -204,44 +248,33 @@ export default function MeScreen() {
           <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>
             {t('도시 체크리스트', 'City Checklist')} · {plannerDoneCount}/{plannerTasks.length}
           </ThemedText>
-          <TextInput
-            value={plannerInput}
-            onChangeText={setPlannerInput}
-            placeholder={t('할 일 추가...', 'Add a task...')}
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle(theme)}
-          />
-          <Pressable
-            onPress={() =>
-              void (async () => {
-                const text = plannerInput.trim();
-                if (!text) return;
-                try {
-                  const board = await ensurePlannerBoard();
-                  const created = await createPlannerTask(board.id, { text });
-                  setPlannerTasks((prev) => [...prev, created]);
-                  setPlannerInput('');
-                } catch (e: unknown) {
-                  setError(e instanceof Error ? e.message : t('추가에 실패했습니다.', 'Failed to add task.'));
-                }
-              })()
-            }
-            style={buttonStyle(theme)}>
-            <ThemedText style={buttonTextStyle(theme)}>{t('추가', 'Add')}</ThemedText>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TextInput
+              value={plannerInput}
+              onChangeText={setPlannerInput}
+              placeholder={t('할 일 추가... 예: 코워킹 데이패스 결제', 'Add a task... e.g. pay for coworking day pass')}
+              placeholderTextColor={theme.textSecondary}
+              style={{ ...inputStyle(theme), flex: 1 }}
+            />
+            <Pressable
+              onPress={() => void onAddPlannerTask()}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: theme.accent,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.backgroundSelected,
+              }}>
+              <ThemedText style={{ color: theme.accent, fontSize: 20, lineHeight: 22, fontWeight: '700' }}>+</ThemedText>
+            </Pressable>
+          </View>
           {plannerTasks.map((task) => (
             <Pressable
               key={task.id}
-              onPress={() =>
-                void (async () => {
-                  try {
-                    const updated = await patchPlannerTask(task.id, { is_done: !task.is_done });
-                    setPlannerTasks((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
-                  } catch (e: unknown) {
-                    setError(e instanceof Error ? e.message : t('수정에 실패했습니다.', 'Failed to update task.'));
-                  }
-                })()
-              }
+              onPress={() => void onTogglePlannerTask(task)}
               style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <View
                 style={{

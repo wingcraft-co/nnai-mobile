@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, TextInput, View } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { createCityStay, fetchCityStays, leaveCityStay, patchCityStay } from '@/api/cities';
-import { GamePanel, ProgressMeter, StatTile } from '@/components/game-ui';
 import { ScreenShell } from '@/components/screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { searchCities, searchCitiesLocal } from '@/data/nomad-cities';
@@ -21,6 +21,20 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function formatDateISO(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseISODate(dateStr: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
 export default function CityScreen() {
   const theme = useTheme();
   const { t } = useI18n();
@@ -37,6 +51,7 @@ export default function CityScreen() {
   const [editArrivedAt, setEditArrivedAt] = useState('');
   const [editVisaExpiresAt, setEditVisaExpiresAt] = useState('');
   const [editBudgetRemaining, setEditBudgetRemaining] = useState('');
+  const [showVisaDatePicker, setShowVisaDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // 새 도시 추가 모드 (이동 후)
@@ -82,7 +97,6 @@ export default function CityScreen() {
     );
     return diff;
   }, [currentStay, today]);
-  const readinessDone = Number((visaDaysLeft ?? 0) > 7) + Number((currentStay?.budget_remaining ?? 0) > 0) + Number((daysStayed ?? 0) >= 2);
 
   const loadStays = useCallback(async () => {
     const data = await fetchCityStays();
@@ -116,8 +130,16 @@ export default function CityScreen() {
     setEditArrivedAt(currentStay.arrived_at);
     setEditVisaExpiresAt(currentStay.visa_expires_at ?? '');
     setEditBudgetRemaining(currentStay.budget_remaining != null ? String(currentStay.budget_remaining) : '');
+    setShowVisaDatePicker(false);
     setEditing(true);
   }, [currentStay]);
+
+  const onVisaDateChange = useCallback((_event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (selectedDate) {
+      setEditVisaExpiresAt(formatDateISO(selectedDate));
+    }
+    setShowVisaDatePicker(false);
+  }, []);
 
   const onSaveEdit = useCallback(async () => {
     if (!currentStay || saving) return;
@@ -235,19 +257,6 @@ export default function CityScreen() {
       subtitle={t('비자/예산/체류일을 관리하고 이동 이벤트 턴을 준비하세요.', 'Manage visa, budget, and stay days to prep your migration event turn.')}
       hideHero
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}>
-      <GamePanel title={t('이동 이벤트 준비도', 'Migration Readiness')} subtitle={t('비자/예산/체류 조건을 맞추면 이동 턴이 열립니다.', 'Hit visa, budget, and stay conditions to unlock migration turn.')}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <StatTile label={t('현재', 'Current')} value={currentStay?.city ?? t('미정', 'Unset')} />
-          <StatTile
-            label={t('비자', 'Visa')}
-            value={visaDaysLeft != null ? `D-${visaDaysLeft}` : '—'}
-            tone={visaDaysLeft != null && visaDaysLeft <= 7 ? 'danger' : 'default'}
-          />
-          <StatTile label={t('체류', 'Days')} value={String(daysStayed ?? '—')} />
-        </View>
-        <ProgressMeter label={t('턴 준비', 'Turn Ready')} value={readinessDone} max={3} />
-      </GamePanel>
-
       {error ? (
         <View style={{ ...card, borderRadius: 16 }}>
           <ThemedText style={{ fontSize: 13, color: theme.destructive }}>{error}</ThemedText>
@@ -430,7 +439,39 @@ export default function CityScreen() {
               <TextInput value={editCity} onChangeText={setEditCity} placeholder={t('도시명', 'City')} placeholderTextColor={theme.textSecondary} style={inputStyle} />
               <TextInput value={editCountry} onChangeText={setEditCountry} placeholder={t('국가', 'Country')} placeholderTextColor={theme.textSecondary} style={inputStyle} />
               <TextInput value={editArrivedAt} onChangeText={setEditArrivedAt} placeholder="YYYY-MM-DD" placeholderTextColor={theme.textSecondary} style={inputStyle} />
-              <TextInput value={editVisaExpiresAt} onChangeText={setEditVisaExpiresAt} placeholder={t('비자 만료일 YYYY-MM-DD', 'Visa expiry YYYY-MM-DD')} placeholderTextColor={theme.textSecondary} style={inputStyle} />
+              <View style={{ gap: 8 }}>
+                <ThemedText style={{ fontSize: 12, color: theme.textSecondary, fontWeight: '700' }}>
+                  {t('비자 만료일', 'Visa expiry date')}
+                </ThemedText>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable
+                    onPress={() => setShowVisaDatePicker(true)}
+                    style={{
+                      ...inputStyle,
+                      flex: 1,
+                      justifyContent: 'center',
+                    }}>
+                    <ThemedText style={{ fontSize: 13, color: editVisaExpiresAt ? theme.text : theme.textSecondary }}>
+                      {editVisaExpiresAt || t('캘린더에서 선택', 'Pick from calendar')}
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setEditVisaExpiresAt('')}
+                    style={{ ...btnStyle, borderColor: theme.border }}>
+                    <ThemedText style={{ fontSize: 12, fontWeight: '700', color: theme.textSecondary }}>
+                      {t('지우기', 'Clear')}
+                    </ThemedText>
+                  </Pressable>
+                </View>
+                {showVisaDatePicker ? (
+                  <DateTimePicker
+                    value={parseISODate(editVisaExpiresAt) ?? new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={onVisaDateChange}
+                  />
+                ) : null}
+              </View>
               <TextInput value={editBudgetRemaining} onChangeText={setEditBudgetRemaining} placeholder={t('잔여 예산 USD', 'Remaining budget USD')} placeholderTextColor={theme.textSecondary} keyboardType="numeric" style={inputStyle} />
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable onPress={() => void onSaveEdit()} disabled={saving} style={[btnStyle, { opacity: saving ? 0.6 : 1 }]}>

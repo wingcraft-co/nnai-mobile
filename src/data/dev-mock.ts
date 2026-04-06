@@ -274,6 +274,9 @@ const profile: Profile = {
   picture: '',
   email: 'dev@nnai.app',
   persona_type: 'planner',
+  country: 'Korea',
+  country_code: 'KR',
+  home_currency: 'KRW',
   badges: [tx('얼리 노마드', 'Early Nomad'), tx('서클 호스트', 'Circle Host')],
   stats: {
     pins: 14,
@@ -288,6 +291,9 @@ const devUser: User = {
   picture: '',
   email: 'dev@nnai.app',
   persona_type: 'planner',
+  country: 'Korea',
+  country_code: 'KR',
+  home_currency: 'KRW',
 };
 
 let plannerBoards: PlannerBoard[] = [

@@ -65,7 +65,9 @@
           "locationWhenInUsePermission": "Allow location access to auto-fill your current city."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-localization",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
