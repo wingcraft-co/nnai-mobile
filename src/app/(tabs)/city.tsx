@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, TextInput, View } from 'react-native';
 
 import { createCityStay, fetchCityStays, leaveCityStay, patchCityStay } from '@/api/cities';
 import { GamePanel, ProgressMeter, StatTile } from '@/components/game-ui';
@@ -160,6 +160,21 @@ export default function CityScreen() {
     }
   }, [currentStay, saving, t]);
 
+  const onConfirmLeave = useCallback(() => {
+    if (!currentStay || saving) return;
+    Alert.alert(
+      t('이 도시 떠나기', 'Leave City'),
+      t(
+        '현재 도시를 떠나면 새 도시를 바로 입력하게 됩니다. 계속할까요?',
+        'Leaving this city will start a new city flow. Continue?',
+      ),
+      [
+        { text: t('취소', 'Cancel'), style: 'cancel' },
+        { text: t('이 도시 떠나기', 'Leave City'), style: 'destructive', onPress: () => void onLeave() },
+      ],
+    );
+  }, [currentStay, onLeave, saving, t]);
+
   const onCreateNew = useCallback(async () => {
     if (!newCity.trim() || saving) return;
     setSaving(true);
@@ -256,6 +271,9 @@ export default function CityScreen() {
       {/* 새 도시 추가 폼 */}
       {addingNew ? (
         <View style={{ ...card, borderRadius: 16 }}>
+          <ThemedText style={{ fontSize: 13, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.8 }}>
+            {t('다음 체류 카드', 'Next Stay')}
+          </ThemedText>
           <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>
             {t('새 도시 입력', 'New City')}
           </ThemedText>
@@ -401,6 +419,9 @@ export default function CityScreen() {
       {/* 현재 도시 카드 */}
       {currentStay && !addingNew ? (
         <View style={{ ...card, borderRadius: 16 }}>
+          <ThemedText style={{ fontSize: 13, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.8 }}>
+            {t('현재 체류 카드', 'Current Stay')}
+          </ThemedText>
           {editing ? (
             <>
               <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>
@@ -437,7 +458,35 @@ export default function CityScreen() {
                 {currentStay.visa_expires_at ? ` · ${t('비자 만료', 'visa exp.')} ${currentStay.visa_expires_at}` : ''}
               </ThemedText>
 
-              {/* 3개 위젯 */}
+              {!currentStay.visa_expires_at ? (
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.destructive,
+                    backgroundColor: theme.background,
+                    padding: 12,
+                    gap: 8,
+                  }}>
+                  <ThemedText style={{ fontSize: 12, fontWeight: '700', color: theme.destructive }}>
+                    {t('VISA 설정 필요', 'Visa setup needed')}
+                  </ThemedText>
+                  <ThemedText style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 18 }}>
+                    {t(
+                      '현재 도시에는 비자 만료일이 없습니다. 도시 상세에서 비자 정보를 입력해야 이동 준비도를 정확히 계산할 수 있습니다.',
+                      'This city has no visa expiry date yet. Edit city details to enter visa information and keep readiness accurate.',
+                    )}
+                  </ThemedText>
+                  <Pressable onPress={onStartEdit} style={btnStyle}>
+                    <ThemedText style={{ fontSize: 12, fontWeight: '700', color: theme.accent }}>
+                      {t('도시 상세 수정', 'Edit city details')}
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <ThemedText style={{ fontSize: 13, fontWeight: '700', color: theme.textSecondary, marginTop: 2 }}>
+                {t('이동 준비 지표', 'Move Readiness')}
+              </ThemedText>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
                 <View style={{ flex: 1, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.background, padding: 10, alignItems: 'center' }}>
                   <ThemedText style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 2 }}>{t('체류', 'DAYS')}</ThemedText>
@@ -481,7 +530,7 @@ export default function CityScreen() {
                     {t('수정', 'Edit')}
                   </ThemedText>
                 </Pressable>
-                <Pressable onPress={() => void onLeave()} disabled={saving} style={[{ ...btnStyle, borderColor: theme.destructive, backgroundColor: 'transparent' }, { opacity: saving ? 0.6 : 1 }]}>
+                <Pressable onPress={onConfirmLeave} disabled={saving} style={[{ ...btnStyle, borderColor: theme.destructive, backgroundColor: 'transparent' }, { opacity: saving ? 0.6 : 1 }]}>
                   <ThemedText style={{ fontSize: 12, fontWeight: '700', color: theme.destructive }}>
                     {saving ? t('처리 중...', 'Processing...') : t('이 도시 떠나기', 'Leave City')}
                   </ThemedText>
@@ -495,6 +544,9 @@ export default function CityScreen() {
       {/* 지나온 도시 */}
       {pastStays.length > 0 ? (
         <View style={card}>
+          <ThemedText style={{ fontSize: 13, fontWeight: '700', color: theme.textSecondary, marginBottom: 6, letterSpacing: 0.8 }}>
+            {t('지난 체류 카드', 'Past Stays')}
+          </ThemedText>
           <Pressable onPress={() => setPastExpanded((v) => !v)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <ThemedText style={{ fontSize: 13, fontWeight: '700', color: theme.textSecondary }}>
               {t('지나온 도시', 'Past Cities')} · {pastStays.length}
