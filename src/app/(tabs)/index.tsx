@@ -6,7 +6,6 @@ import { Pressable, RefreshControl, TextInput, useWindowDimensions, View } from 
 import Animated, {
   Easing,
   interpolate,
-  useAnimatedStyle as useRewardAnimatedStyle,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -764,22 +763,6 @@ function QuestLoopPanel({
 }) {
   const saveRunsUsed = saveRun.used_week_keys.length;
   const saveRunCaption = `${saveRunsUsed}/${Math.max(1, saveRun.weekly_limit)}`;
-  const rewardPulse = useSharedValue(0);
-  const rewardAnimatedStyle = useRewardAnimatedStyle(() => ({
-    opacity: rewardPulse.value,
-    transform: [{ translateY: interpolate(rewardPulse.value, [0, 1], [8, 0]) }],
-  }));
-
-  useEffect(() => {
-    if (quest.status !== 'completed') {
-      rewardPulse.value = 0;
-      return;
-    }
-    rewardPulse.value = withTiming(1, {
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [quest.status, rewardPulse]);
 
   return (
     <GamePanel
@@ -866,25 +849,22 @@ function QuestLoopPanel({
       <StatTile label={t('총 완료 퀘스트', 'Total Clears')} value={`${completedCount}`} />
 
       {quest.status === 'completed' ? (
-        <Animated.View
-          style={[
-            {
-              borderWidth: 1,
-              borderColor: theme.accent,
-              borderRadius: 12,
-              backgroundColor: theme.surfaceSelected,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-            },
-            rewardAnimatedStyle,
-          ]}>
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: theme.accent,
+            borderRadius: 12,
+            backgroundColor: theme.surfaceSelected,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+          }}>
           <ThemedText className="text-xs font-extrabold" style={{ color: theme.accent, lineHeight: 18 }}>
             {t(
               '보상: 루틴 XP +1, 콤보 유지. 다음 퀘스트를 열고 흐름을 이어가세요.',
               'Reward: Routine XP +1, combo preserved. Open next quest to keep momentum.',
             )}
           </ThemedText>
-        </Animated.View>
+        </View>
       ) : null}
 
       {notice ? (
