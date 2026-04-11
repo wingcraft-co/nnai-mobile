@@ -51,6 +51,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="connect"
           options={{
+            href: null,
             title: t('연결', 'Connect'),
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons color={color} name="transit-connection-variant" size={size} />

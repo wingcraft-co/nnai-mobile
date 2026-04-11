@@ -16,10 +16,8 @@ function read(file) {
   return fs.readFileSync(file, 'utf8');
 }
 
-test('legacy index route redirects to timeline', () => {
-  const content = read(INDEX_FILE);
-  assert.match(content, /Redirect/);
-  assert.match(content, /href="\/\(tabs\)\/timeline"/);
+test('legacy index route file is removed', () => {
+  assert.equal(fs.existsSync(INDEX_FILE), false);
 });
 
 test('screen shell does not render SIM MODE', () => {
@@ -56,10 +54,8 @@ test('legacy turn and city routes are not wired as tab roots', () => {
   assert.doesNotMatch(content, /name="city"/);
 });
 
-test('legacy city route redirects to connect', () => {
-  const content = read(CITY_FILE);
-  assert.match(content, /Redirect/);
-  assert.match(content, /href="\/\(tabs\)\/connect"/);
+test('legacy city route file is removed', () => {
+  assert.equal(fs.existsSync(CITY_FILE), false);
 });
 
 test('character tab includes explicit checkpoint guidance copy', () => {

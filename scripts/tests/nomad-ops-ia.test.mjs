@@ -2,12 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-test('tabs layout exposes timeline/connect/alerts/me routes', () => {
+test('tabs layout exposes timeline/alerts/me routes and keeps connect hidden', () => {
   const content = fs.readFileSync('src/app/(tabs)/_layout.tsx', 'utf8');
   assert.match(content, /name="timeline"/);
-  assert.match(content, /name="connect"/);
   assert.match(content, /name="alerts"/);
   assert.match(content, /name="me"/);
+  assert.match(content, /name="connect"/);
+  assert.match(content, /href:\s*null/);
   assert.doesNotMatch(content, /name="index"/);
   assert.doesNotMatch(content, /name="city"/);
 });

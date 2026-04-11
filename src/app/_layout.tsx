@@ -30,7 +30,7 @@ function RootLayoutNav() {
     }
 
     if (state.status === 'authenticated' && inAuthGroup) {
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/timeline');
     }
   }, [router, segments, state.status]);
 

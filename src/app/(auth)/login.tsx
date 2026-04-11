@@ -25,6 +25,7 @@ const DEV_BYPASS_AUTH_ENABLED = process.env.EXPO_PUBLIC_DEV_BYPASS_AUTH === 'tru
 const DEV_MOCK_API_ENABLED = process.env.EXPO_PUBLIC_DEV_MOCK_API === 'true';
 const DEV_ACCESS_TOKEN = process.env.EXPO_PUBLIC_DEV_ACCESS_TOKEN ?? '';
 const MOCK_TOKEN = 'mock-token';
+const FALLBACK_GOOGLE_CLIENT_ID = '000000000000-placeholder.apps.googleusercontent.com';
 
 function extractCodeFromUrl(url: string): string | null {
   const parsed = Linking.parse(url);
@@ -44,16 +45,19 @@ export default function LoginScreen() {
   const handledAuthCodeRef = useRef<string | null>(null);
   const isExpoGo = Constants.appOwnership === 'expo';
   const hasClientIds = Boolean(GOOGLE_CLIENT_ID_IOS && GOOGLE_CLIENT_ID_ANDROID);
+  const iosClientId = GOOGLE_CLIENT_ID_IOS || FALLBACK_GOOGLE_CLIENT_ID;
+  const androidClientId = GOOGLE_CLIENT_ID_ANDROID || FALLBACK_GOOGLE_CLIENT_ID;
+  const webClientId = GOOGLE_CLIENT_ID_WEB || FALLBACK_GOOGLE_CLIENT_ID;
 
   const iosRedirectUri = makeRedirectUri({
     native: 'com.googleusercontent.apps.962318799283-7tsqbo64f14h6hfvgrn8b4fbgp43o6s5:/oauthredirect',
   });
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: isExpoGo ? GOOGLE_CLIENT_ID_WEB || undefined : undefined,
-    iosClientId: isExpoGo ? undefined : GOOGLE_CLIENT_ID_IOS || undefined,
-    androidClientId: isExpoGo ? undefined : GOOGLE_CLIENT_ID_ANDROID || undefined,
-    webClientId: GOOGLE_CLIENT_ID_WEB || undefined,
+    clientId: isExpoGo ? webClientId : undefined,
+    iosClientId: isExpoGo ? undefined : iosClientId,
+    androidClientId: isExpoGo ? undefined : androidClientId,
+    webClientId,
     redirectUri: isExpoGo ? undefined : iosRedirectUri,
     responseType: 'code',
     shouldAutoExchangeCode: false,
@@ -79,7 +83,7 @@ export default function LoginScreen() {
       });
       await saveToken(token);
       login(token, user);
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/timeline');
     } catch (e: unknown) {
       if (e instanceof ApiError && e.status === 404) {
         setError(
@@ -239,7 +243,7 @@ export default function LoginScreen() {
                 email: 'mock@nnai.app',
                 persona_type: 'wanderer',
               });
-              router.replace('/(tabs)');
+              router.replace('/(tabs)/timeline');
             }}>
             <ThemedText className="text-base font-bold" style={{ color: theme.text }}>
               {t('Mock으로 진입', 'Enter with Mock')}
@@ -263,7 +267,7 @@ export default function LoginScreen() {
                     email: 'dev@nnai.app',
                     persona_type: 'planner',
                   });
-                  router.replace('/(tabs)');
+                  router.replace('/(tabs)/timeline');
                   return;
                 }
 
@@ -280,7 +284,7 @@ export default function LoginScreen() {
                 await saveToken(DEV_ACCESS_TOKEN);
                 const user = await fetchMe();
                 login(DEV_ACCESS_TOKEN, user);
-                router.replace('/(tabs)');
+                router.replace('/(tabs)/timeline');
               } catch (e: unknown) {
                 await clearToken();
                 const message = e instanceof Error ? e.message : t('Dev 진입에 실패했습니다.', 'Failed to enter Dev mode.');
