@@ -1,6 +1,19 @@
 export type RiskState = 'safe' | 'warning' | 'critical' | 'overdue';
 
+function assertValidDateString(value: string, label: string): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new TypeError(`${label} must be a valid ISO date string`);
+  }
+
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    throw new TypeError(`${label} must be a valid ISO date string`);
+  }
+}
+
 export function computeMustLeaveDate(entryDate: string, allowedDays: number): string {
+  assertValidDateString(entryDate, 'entryDate');
+
   const base = new Date(`${entryDate}T00:00:00Z`);
   base.setUTCDate(base.getUTCDate() + allowedDays);
   return base.toISOString().slice(0, 10);
@@ -11,6 +24,9 @@ export function deriveRiskState(
   mustLeaveDate: string,
   warningWindowDays: number,
 ): RiskState {
+  assertValidDateString(today, 'today');
+  assertValidDateString(mustLeaveDate, 'mustLeaveDate');
+
   const todayDate = new Date(`${today}T00:00:00Z`);
   const mustLeaveDateDate = new Date(`${mustLeaveDate}T00:00:00Z`);
   const diffDays = Math.floor(
