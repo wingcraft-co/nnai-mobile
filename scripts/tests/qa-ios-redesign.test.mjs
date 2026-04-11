@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const FEED_FILE = path.join(ROOT, 'src', 'app', '(tabs)', 'index.tsx');
 const SHELL_FILE = path.join(ROOT, 'src', 'components', 'screen-shell.tsx');
 const TABS_FILE = path.join(ROOT, 'src', 'app', '(tabs)', '_layout.tsx');
+const INDEX_FILE = path.join(ROOT, 'src', 'app', '(tabs)', 'index.tsx');
 const CITY_FILE = path.join(ROOT, 'src', 'app', '(tabs)', 'city.tsx');
 const ME_FILE = path.join(ROOT, 'src', 'app', '(tabs)', 'me.tsx');
 const COMPANION_FILE = path.join(ROOT, 'src', 'components', 'floating-companion.tsx');
@@ -16,19 +16,10 @@ function read(file) {
   return fs.readFileSync(file, 'utf8');
 }
 
-test('turn tab hides raw author ID from the UI', () => {
-  const content = read(FEED_FILE);
-
-  assert.doesNotMatch(content, /\bID\b\s*[:\-]?\s*\{\s*[^}]+\s*\}/i);
-});
-
-test('turn dashboard dims and shows completion stamp when all quests are done', () => {
-  const content = read(FEED_FILE);
-
-  assert.match(content, /isTurnComplete\s*=\s*questDone\s*>=\s*questTotal/);
-  assert.match(content, /opacity:\s*isTurnComplete\s*\?\s*0\.35\s*:\s*1/);
-  assert.match(content, /pointerEvents=\{isTurnComplete\s*\?\s*'none'\s*:\s*'auto'\}/);
-  assert.match(content, /완료 스탬프|COMPLETED STAMP/);
+test('legacy index route redirects to timeline', () => {
+  const content = read(INDEX_FILE);
+  assert.match(content, /Redirect/);
+  assert.match(content, /href="\/\(tabs\)\/timeline"/);
 });
 
 test('screen shell does not render SIM MODE', () => {
@@ -65,11 +56,10 @@ test('legacy turn and city routes are not wired as tab roots', () => {
   assert.doesNotMatch(content, /name="city"/);
 });
 
-test('city tab has a confirmation flow before leave action', () => {
+test('legacy city route redirects to connect', () => {
   const content = read(CITY_FILE);
-
-  assert.doesNotMatch(content, /onPress=\{\(\)\s*=>\s*void\s*onLeave\(\)\}/);
-  assert.match(content, /Alert\.alert\([\s\S]{0,240}?(?:Leave City|이 도시 떠나기)[\s\S]{0,240}?(?:Cancel|취소)/i);
+  assert.match(content, /Redirect/);
+  assert.match(content, /href="\/\(tabs\)\/connect"/);
 });
 
 test('character tab includes explicit checkpoint guidance copy', () => {
