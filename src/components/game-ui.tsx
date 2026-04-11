@@ -109,26 +109,35 @@ export function PixelButton({
   label,
   onPress,
   tone = 'accent',
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   tone?: 'accent' | 'neutral';
+  disabled?: boolean;
 }) {
   const theme = useTheme();
   const isAccent = tone === 'accent';
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={{
         alignSelf: 'flex-start',
         borderWidth: 1,
-        borderColor: isAccent ? theme.accent : theme.border,
+        borderColor: disabled ? theme.border : isAccent ? theme.accent : theme.border,
         borderRadius: 12,
-        backgroundColor: isAccent ? theme.surfaceSelected : theme.surfaceMuted,
+        backgroundColor: disabled ? theme.surfaceMuted : isAccent ? theme.surfaceSelected : theme.surfaceMuted,
         paddingHorizontal: 14,
         paddingVertical: 9,
+        opacity: disabled ? 0.6 : 1,
       }}>
-      <ThemedText style={{ fontSize: 12, fontWeight: '800', color: isAccent ? theme.accent : theme.textSecondary }}>
+      <ThemedText
+        style={{
+          fontSize: 12,
+          fontWeight: '800',
+          color: disabled ? theme.textSecondary : isAccent ? theme.accent : theme.textSecondary,
+        }}>
         {label}
       </ThemedText>
     </Pressable>

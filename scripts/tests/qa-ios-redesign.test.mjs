@@ -59,6 +59,12 @@ test('tabs use semantic icons instead of single-letter circles', () => {
   assert.doesNotMatch(content, /function\s+TabIcon\(/);
 });
 
+test('legacy turn and city routes are not wired as tab roots', () => {
+  const content = read(TABS_FILE);
+  assert.doesNotMatch(content, /name="index"/);
+  assert.doesNotMatch(content, /name="city"/);
+});
+
 test('city tab has a confirmation flow before leave action', () => {
   const content = read(CITY_FILE);
 

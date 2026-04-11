@@ -35,7 +35,7 @@ function loadNomadOpsModule() {
   return context.module.exports;
 }
 
-const { computeMustLeaveDate, deriveRiskState, validateMoveConnection } = loadNomadOpsModule();
+const { computeMustLeaveDate, deriveRiskState, validateMoveConnection, buildAlertQueue } = loadNomadOpsModule();
 
 test('computeMustLeaveDate adds allowed days from entry date', () => {
   assert.equal(computeMustLeaveDate('2026-04-01', 30), '2026-05-01');
@@ -111,4 +111,15 @@ test('validateMoveConnection flags overstay risk', () => {
 
   assert.equal(result.ok, false);
   assert.ok(result.reasons.includes('overstay_risk'));
+});
+
+test('critical and overdue alerts are sorted above warning alerts', () => {
+  const alerts = buildAlertQueue([
+    { key: 'warning_buffer', severity: 'warning' },
+    { key: 'overstay', severity: 'critical' },
+    { key: 'expired', severity: 'overdue' },
+  ]);
+
+  assert.equal(alerts[0].key, 'expired');
+  assert.equal(alerts[1].key, 'overstay');
 });

@@ -1,4 +1,10 @@
 export type RiskState = 'safe' | 'warning' | 'critical' | 'overdue';
+export type AlertSeverity = RiskState | 'critical';
+
+export type AlertQueueItem = {
+  key: string;
+  severity: AlertSeverity;
+};
 
 function assertValidDateString(value: string, label: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -55,4 +61,15 @@ export function validateMoveConnection(input: {
     ok: reasons.length === 0,
     reasons,
   };
+}
+
+const ALERT_WEIGHT: Record<AlertSeverity, number> = {
+  overdue: 4,
+  critical: 3,
+  warning: 2,
+  safe: 1,
+};
+
+export function buildAlertQueue<T extends AlertQueueItem>(items: T[]): T[] {
+  return [...items].sort((a, b) => ALERT_WEIGHT[b.severity] - ALERT_WEIGHT[a.severity]);
 }

@@ -13,7 +13,10 @@
     "test:persona": "node --test scripts/tests/persona-standard.test.mjs",
     "test:me": "node --test scripts/tests/me-tab-companion.test.mjs",
     "test:quest": "node --test scripts/tests/quest-engine.test.mjs",
-    "test:pr-proof": "node --test scripts/tests/pr-proof.test.mjs"
+    "test:pr-proof": "node --test scripts/tests/pr-proof.test.mjs",
+    "test:nomad-ops-domain": "node --test scripts/tests/nomad-ops-domain.test.mjs",
+    "test:nomad-ops-ia": "node --test scripts/tests/nomad-ops-ia.test.mjs",
+    "test:nomad-ops-events": "node --test scripts/tests/nomad-ops-events.test.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

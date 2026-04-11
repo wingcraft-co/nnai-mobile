@@ -21,10 +21,12 @@ import { fetchCities, fetchCityStays } from '@/api/cities';
 import { fetchProfile } from '@/api/profile';
 import { CharacterAvatar } from '@/components/character-avatar';
 import { GamePanel, ProgressMeter, StatTile } from '@/components/game-ui';
+import { OpsRiskBadge } from '@/components/ops-risk-badge';
 import { ScreenShell } from '@/components/screen-shell';
 import { SpeechBubble } from '@/components/speech-bubble';
 import { ThemedText } from '@/components/themed-text';
 import { getPersonaTypeConfig } from '@/constants/persona-types';
+import { computeMustLeaveDate, deriveRiskState, type RiskState } from '@/features/nomad-ops';
 import { buildPersonaChatterLines, isSleepingByLocalTime } from '@/features/persona-companion';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/i18n';
@@ -103,6 +105,12 @@ export default function MeScreen() {
     () => buildPersonaChatterLines({ isKorean, stay: currentStay, matchedCity }),
     [currentStay, isKorean, matchedCity],
   );
+  const riskState: RiskState = useMemo(() => {
+    if (!currentStay) return 'safe';
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const mustLeaveDate = computeMustLeaveDate(currentStay.arrived_at, 90);
+    return deriveRiskState(todayISO, mustLeaveDate, 7);
+  }, [currentStay]);
   const chatter = chatterLines[chatterIndex % Math.max(1, chatterLines.length)] ?? '';
   const isSleeping = isSleepingByLocalTime(new Date());
   const companionBackdrop = isSleeping
@@ -788,6 +796,7 @@ export default function MeScreen() {
       </View>
 
       <GamePanel title={t('캐릭터 루프 상태', 'Character Loop Status')} subtitle={t('오늘 행동이 레벨과 타입 성장으로 연결됩니다.', 'Your daily actions feed level and type progression.')}>
+        <OpsRiskBadge risk={riskState} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <StatTile label={t('레벨', 'Level')} value={`Lv.${characterLevel}`} tone="accent" />
           <StatTile label={t('연속 턴', 'Streak')} value={`${streakDays}${t('일', 'd')}`} />

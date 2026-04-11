@@ -14,7 +14,7 @@ export default function TabsLayout() {
   const { t } = useI18n();
   const pathname = usePathname();
   const companionContext: CompanionContext = useMemo(() => {
-    if (pathname.includes('city')) return 'city';
+    if (pathname.includes('connect')) return 'city';
     if (pathname.includes('me')) return 'me';
     return 'feed';
   }, [pathname]);
@@ -40,20 +40,29 @@ export default function TabsLayout() {
           },
         }}>
         <Tabs.Screen
-          name="index"
+          name="timeline"
           options={{
-            title: t('턴', 'Turn'),
+            title: t('타임라인', 'Timeline'),
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons color={color} name="clipboard-check-outline" size={size} />
+              <MaterialCommunityIcons color={color} name="timeline-outline" size={size} />
             ),
           }}
         />
         <Tabs.Screen
-          name="city"
+          name="connect"
           options={{
-            title: t('도시', 'City'),
+            title: t('연결', 'Connect'),
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons color={color} name="map-marker-outline" size={size} />
+              <MaterialCommunityIcons color={color} name="transit-connection-variant" size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="alerts"
+          options={{
+            title: t('알림', 'Alerts'),
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons color={color} name="alert-outline" size={size} />
             ),
           }}
         />

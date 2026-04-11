@@ -6,6 +6,7 @@ import path from 'node:path';
 const ROOT = process.cwd();
 const SRC_DIR = path.join(ROOT, 'src');
 const API_TYPES_FILE = path.join(SRC_DIR, 'types', 'api.ts');
+const ME_SCREEN_FILE = path.join(SRC_DIR, 'app', '(tabs)', 'me.tsx');
 
 function readAllSourceFiles(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -50,4 +51,10 @@ test('api types defines PersonaType standard enum values', () => {
   assert.match(content, /'planner'/);
   assert.match(content, /'free_spirit'/);
   assert.match(content, /'pioneer'/);
+});
+
+test('me screen uses profile persona_type and risk badge mapping', () => {
+  const content = fs.readFileSync(ME_SCREEN_FILE, 'utf8');
+  assert.match(content, /persona_type/);
+  assert.match(content, /OpsRiskBadge/);
 });
